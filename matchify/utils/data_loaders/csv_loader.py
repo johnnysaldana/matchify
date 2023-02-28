@@ -2,7 +2,7 @@ import pandas as pd
 
 
 class CsvLoader:
-    def __init__(self, file_path, chunksize=None, low_memory=False, use_threads=True):
+    def __init__(self, file_path, chunksize=None, low_memory=False):
         """
         Initialize the CsvLoader object.
 
@@ -10,12 +10,10 @@ class CsvLoader:
             file_path (str): the path to the CSV file.
             chunksize (int): the number of rows to read at a time, or None to read the entire file.
             low_memory (bool): whether to optimize memory usage at the cost of performance.
-            use_threads (bool): whether to use multithreading for faster I/O.
         """
         self.file_path = file_path
         self.chunksize = chunksize
         self.low_memory = low_memory
-        self.use_threads = use_threads
 
     def load(self):
         """
@@ -31,14 +29,12 @@ class CsvLoader:
                     chunksize=self.chunksize,
                     low_memory=self.low_memory,
                     iterator=True,
-                    use_threads=self.use_threads,
                 )
                 data = pd.concat(data_chunks, ignore_index=True)
             else:
                 data = pd.read_csv(
                     self.file_path,
                     low_memory=self.low_memory,
-                    use_threads=self.use_threads,
                 )
         except FileNotFoundError:
             raise Exception(f"File {self.file_path} not found.")
