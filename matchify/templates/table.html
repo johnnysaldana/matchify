@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- ... -->
+</head>
+<body>
+  <h1>Model Comparisons</h1>
+  <h2>Dataset: {{ dataset_name }}</h2>
+  <h3>Sample Record:</h3>
+  <pre>{{ sample_record.to_string() }}</pre>
+  <table>
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Predictions</th>
+        <th>MRR Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for model_result in model_results %}
+        <tr>
+          <td>{{ model_result.model_name }}</td>
+          <td>
+            <pre>{{ model_result.predictions.to_string() }}</pre>
+          </td>
+          <td>{{ model_result.mrr_score }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
