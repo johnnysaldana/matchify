@@ -1,85 +1,44 @@
 import pandas as pd
-import numpy as np
-from itertools import combinations
-
-from matchify.models.entity_resolution_base_model import EntityResolutionBaseModel
+from matchify.models.base_model import ERBaseModel
 
 
-class ExactMatchModel(EntityResolutionBaseModel):
-    def __init__(self, **kwargs):
+class ExactMatchModel(ERBaseModel):
+    def preprocess(self) -> pd.DataFrame:
         """
-        Initialize the ExactMatchModel object.
-
-        Parameters:
-            **kwargs: any additional arguments to be passed to the model.
+        Since the exact matching doesn't require any specific preprocessing, we just return
+        the original data.
         """
-        super().__init__(**kwargs)
-        self.groups = None
+        pass
 
-    def fit(self, dataframes):
+    def train(self, *args, **kwargs):
         """
-        Find exact matches between records in the input dataframes.
-
-        Parameters:
-            dataframes (list): a list of pandas DataFrames to find matches in.
-
-        Returns:
-            None
+        Exact matching doesn't require a training phase, so this method remains empty.
         """
-        # Concatenate dataframes into a single dataframe
-        data = pd.concat(dataframes, axis=0)
+        pass
 
-        # Get unique records and assign group numbers
-        unique_records, self.groups = self._get_unique_records(data)
+    def cluster(self):
+        df = self.df
+        df['matchify_hash'] = df.apply(lambda row: hash(tuple(row[[x for x in df.columns if x not in self.ignored_columns]])), axis=1)
+        df["predicted_group_id"] = df["matchify_hash"].rank(method="dense", ascending=True)
+        self.is_clustered = True
+        self.df = df
+        return df
 
-        # Create a dictionary mapping records to group numbers
-        self.group_dict = dict(zip(unique_records, self.groups))
-
-    def predict(self, data):
+    def predict(self, record: pd.Series, **kwargs) -> pd.DataFrame:
         """
-        Predict the matches for the input data using the group numbers from the fit method.
-
-        Parameters:
-            data (pandas DataFrame): the input data to predict matches for.
-
-        Returns:
-            pandas DataFrame: a DataFrame with columns representing the two records and a match score.
+        Predict the most likely match(es) for the input record using exact matching.
         """
-        # Get unique records in the input data
-        unique_records, _ = self._get_unique_records(data)
+        if not self.is_clustered:
+            self.cluster()
+        return_full_record = kwargs.get('return_full_record')
+        only_matches = kwargs.get('only_matches')
 
-        # Get group numbers for each record using the dictionary created in the fit method
-        group_nums = [self.group_dict.get(record, np.nan) for record in unique_records]
+        record_hash = hash(tuple(record[[x for x in record.index if x not in self.ignored_columns]]))
+        # to save memory we add a new column to the original loaded dataset and delete it later
+        results = self.df
+        results["score"] = results["matchify_hash"].apply(lambda x: 1 if x == record_hash else 0)
 
-        # Add group numbers as a column to the input data and return
-        output_data = data.copy()
-        output_data['group'] = group_nums
-        return output_data
+        results = results[self.df["score"] == 1] if only_matches else results
+        results = results[['id', 'score']] if not return_full_record else results
 
-    def _get_unique_records(self, data):
-        """
-        Find unique records in the input data and assign group numbers.
-
-        Parameters:
-            data (pandas DataFrame): the input data to find unique records in.
-
-        Returns:
-            Tuple[pandas DataFrame, numpy array]: the unique records and their group numbers.
-        """
-        # Get unique records and assign group numbers
-        unique_records = data.drop_duplicates(keep='first')
-        groups = np.arange(1, len(unique_records) + 1)
-
-        # Create a dictionary mapping record tuples to group numbers
-        record_dict = dict(zip(map(tuple, unique_records.to_numpy()), groups))
-
-        # Iterate through all pairs of records and assign the same group number if they match
-        for r1, r2 in combinations(unique_records.to_numpy(), 2):
-            if np.all(r1 == r2):
-                group_num = record_dict[tuple(r1)]
-                record_dict[tuple(r2)] = group_num
-
-        # Get final groups for each unique record
-        final_groups = np.array([record_dict[tuple(r)] for r in unique_records.to_numpy()])
-
-        return unique_records, final_groups
+        return results.sort_values(by='score', ascending=False)
