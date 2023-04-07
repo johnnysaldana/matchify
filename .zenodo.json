@@ -1,0 +1,33 @@
+{
+  "title": "matchify: A Python package for entity resolution and deduplication",
+  "description": "<p>matchify is a Python package for entity resolution. Five models under a common interface: hash-based exact match, rule-based field similarity (Flex), supervised MLP on distance features, pretrained sentence-BERT, and a fine-tuned Siamese encoder. Evaluated with MRR and per-threshold precision/recall on four benchmarks (Amazon-Google, Abt-Buy, DBLP-ACM, and a synthetic person-record dataset).</p><p>Built for EN.601.507 at Johns Hopkins, Spring 2023, advised by Tom Lippincott.</p>",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Saldana, Johnny",
+      "affiliation": "Johns Hopkins University"
+    }
+  ],
+  "keywords": [
+    "entity resolution",
+    "record linkage",
+    "deduplication",
+    "data matching",
+    "information retrieval",
+    "mean reciprocal rank",
+    "TF-IDF",
+    "Jaro-Winkler",
+    "blocking",
+    "Python"
+  ],
+  "license": "mit",
+  "access_right": "open",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/johnnysaldana/matchify",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ],
+  "communities": []
+}
