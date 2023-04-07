@@ -1,0 +1,16 @@
+pandas
+numpy
+scikit-learn
+tqdm
+textdistance
+gensim
+nameparser
+phonenumbers
+usaddress
+python-dateutil
+jinja2
+click
+faker
+boto3
+pyarrow
+sqlalchemy

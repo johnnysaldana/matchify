@@ -43,7 +43,7 @@ class DataSplitter:
             random_state=self.random_state,
         )
 
-        return train_data, test_data  # dev_data
+        return train_data, test_data, dev_data
 
     def split_er(self):
         """

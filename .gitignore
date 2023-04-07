@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.coverage
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated artifacts
+output.html
+
+# Local research notes / reading materials (not part of the published package)
+Entity Resolution Project EN.601.507/

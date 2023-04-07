@@ -3,25 +3,11 @@ import pandas as pd
 
 class CsvLoader:
     def __init__(self, file_path, chunksize=None, low_memory=False):
-        """
-        Initialize the CsvLoader object.
-
-        Parameters:
-            file_path (str): the path to the CSV file.
-            chunksize (int): the number of rows to read at a time, or None to read the entire file.
-            low_memory (bool): whether to optimize memory usage at the cost of performance.
-        """
         self.file_path = file_path
         self.chunksize = chunksize
         self.low_memory = low_memory
 
     def load(self):
-        """
-        Load data from a CSV file using pandas.
-
-        Returns:
-            pandas DataFrame: the loaded data.
-        """
         try:
             if self.chunksize is not None:
                 data_chunks = pd.read_csv(

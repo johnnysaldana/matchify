@@ -143,7 +143,7 @@ class ERBaseModel(abc.ABC):
 
             # Calculate the reciprocal rank of the correct match
             for idx, pred_id in enumerate(predicted_match_ids):
-                if pred_id in actual_match_ids and pred_id != 1:
+                if pred_id in actual_match_ids:
                     rr_list.append(1 / (idx + 1))
                     break
             else:

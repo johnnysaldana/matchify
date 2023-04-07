@@ -2,10 +2,7 @@ import pandas as pd
 import textdistance
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from gensim.models import Word2Vec, KeyedVectors, Doc2Vec
-from gensim.models.doc2vec import TaggedDocument
 from gensim.parsing.preprocessing import preprocess_string, strip_punctuation
-import numpy as np
 from matchify.models.base_model import ERBaseModel
 from typing import Dict
 
@@ -35,8 +32,6 @@ class FlexMatchModel(ERBaseModel):
                 preprocessed_data[field] = preprocessed_data[field].apply(self._normalize_address)
             elif field_type == "date":
                 preprocessed_data[field] = preprocessed_data[field].apply(self._normalize_date)
-            elif field_type == "description":
-                preprocessed_data[field] = preprocessed_data[field].apply(self._normalize_description)
 
         for field, config in self.blocking_config.items():
             # add necessary fields for blocking purposes
@@ -78,7 +73,9 @@ class FlexMatchModel(ERBaseModel):
             tokenized_s2 = set(preprocess_string(s2, filters=[strip_punctuation]))
             intersection = len(tokenized_s1.intersection(tokenized_s2))
             union = len(tokenized_s1.union(tokenized_s2))
-            return float(intersection) / float
+            return float(intersection) / float(union) if union else 0.0
+        else:
+            raise ValueError(f"Unsupported comparison method: {method}")
 
     # Blocking methods
     def _apply_blocking(self, new_record: pd.Series) -> pd.MultiIndex:
