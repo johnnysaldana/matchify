@@ -1,32 +1,44 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- ... -->
+  <meta charset="utf-8">
+  <title>matchify - Model Comparisons</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; margin: 2em; }
+    h1 { margin-bottom: 0.2em; }
+    h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.2em; margin-top: 1.5em; }
+    table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+    th, td { border: 1px solid #ddd; padding: 0.4em 0.6em; vertical-align: top; }
+    th { background: #f3f3f3; text-align: left; }
+    pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; white-space: pre-wrap; margin: 0; }
+    .mrr { font-variant-numeric: tabular-nums; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h1>Model Comparisons</h1>
-  <h2>Dataset: {{ dataset_name }}</h2>
-  <h3>Sample Record:</h3>
-  <pre>{{ sample_record.to_string() }}</pre>
-  <table>
-    <thead>
-      <tr>
-        <th>Model</th>
-        <th>Predictions</th>
-        <th>MRR Score</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for model_result in model_results %}
+  <h1>matchify - Model Comparisons</h1>
+
+  {% for dataset in dataset_results %}
+    <h2>Dataset: {{ dataset.dataset_name }}</h2>
+    <h3>Sample lookup record:</h3>
+    <pre>{{ dataset.sample_record.to_string() }}</pre>
+    <table>
+      <thead>
         <tr>
-          <td>{{ model_result.model_name }}</td>
-          <td>
-            <pre>{{ model_result.predictions.to_string() }}</pre>
-          </td>
-          <td>{{ model_result.mrr_score }}</td>
+          <th>Model</th>
+          <th>Top-10 predictions</th>
+          <th>MRR</th>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% for model_result in dataset.model_results %}
+          <tr>
+            <td>{{ model_result.model_name }}</td>
+            <td><pre>{{ model_result.predictions.to_string() }}</pre></td>
+            <td class="mrr">{{ "%.4f"|format(model_result.mrr_score) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
 </body>
 </html>
