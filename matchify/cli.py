@@ -22,6 +22,9 @@ def generate_html_table(dataset_results):
 
 
 def _build_model(model_name, df, ignored_columns, field_config, blocking_config):
+    # Each model gets its own copy: ExactMatchModel mutates self.df during
+    # clustering and FlexMatchModel's preprocess() rewrites field columns.
+    df = df.copy()
     if model_name == "exact":
         from matchify.models.exact_match_model import ExactMatchModel
         return ExactMatchModel(df, ignored_columns=ignored_columns)
@@ -61,7 +64,15 @@ def _build_model(model_name, df, ignored_columns, field_config, blocking_config)
     "--output", "output_path", default="output.html",
     help="HTML report path.",
 )
-def model_comparisons(datasets, models, limit, output_path):
+@click.option(
+    "--threshold", default=0.5, type=float,
+    help="Score threshold used for the confusion matrix.",
+)
+@click.option(
+    "--confusion/--no-confusion", default=True,
+    help="Compute and emit the confusion matrix (slower; uses --threshold).",
+)
+def model_comparisons(datasets, models, limit, output_path, threshold, confusion):
     """Run the configured models on the configured datasets and write an HTML report."""
     import pandas as pd
 
@@ -97,10 +108,22 @@ def model_comparisons(datasets, models, limit, output_path):
             ).head(10)
             mrr = model.mrr()
             click.echo(f"    MRR: {mrr:.4f}")
+            confusion_stats = None
+            if confusion:
+                confusion_stats = model.confusion_matrix(threshold=threshold)
+                click.echo(
+                    f"    confusion@{threshold}: "
+                    f"tp={confusion_stats['tp']} fp={confusion_stats['fp']} "
+                    f"tn={confusion_stats['tn']} fn={confusion_stats['fn']} "
+                    f"P={confusion_stats['precision']:.3f} "
+                    f"R={confusion_stats['recall']:.3f} "
+                    f"F1={confusion_stats['f1']:.3f}"
+                )
             model_results.append({
                 "model_name": type(model).__name__,
                 "predictions": predictions,
                 "mrr_score": mrr,
+                "confusion": confusion_stats,
             })
 
         dataset_results.append({

@@ -156,3 +156,65 @@ class ERBaseModel(abc.ABC):
         # Calculate the mean reciprocal rank
         mrr = sum(rr_list) / len(rr_list) if rr_list else 0
         return mrr
+
+    def confusion_matrix(self, threshold: float = 0.5):
+        """
+        Tally TP / FP / TN / FN over every candidate pair the model produces
+        across the dataset, treating "predicted match" as score >= threshold
+        and "actual match" as a shared group_id.
+
+        Self-pairs (a record matched against itself) are excluded.
+
+        Returns:
+            dict with keys tp, fp, tn, fn, precision, recall, f1.
+        """
+        if 'group_id' not in self.df.columns:
+            raise Exception('confusion_matrix requires group_id column')
+
+        tp = fp = tn = fn = 0
+
+        total_rows = len(self.df)
+        progress_bar = tqdm(total=total_rows, ncols=100, desc="Confusion matrix", unit=" rows")
+
+        group_lookup = self.df.set_index('id')['group_id'].to_dict()
+
+        for _, row in self.df.iterrows():
+            row_id = row.id
+            row_group = group_lookup.get(row_id)
+            row_features = row[[x for x in row.index if x not in self.ignored_columns]]
+
+            preds = self.predict(row_features, only_matches=False, return_full_record=True)
+            for _, pred in preds.iterrows():
+                pred_id = pred.get('id')
+                if pred_id == row_id:
+                    continue
+                score = float(pred.get('score') or 0.0)
+                pred_group = group_lookup.get(pred_id)
+                actual_match = (
+                    row_group is not None
+                    and pred_group is not None
+                    and not pd.isna(row_group)
+                    and not pd.isna(pred_group)
+                    and row_group == pred_group
+                )
+                predicted_match = score >= threshold
+                if predicted_match and actual_match:
+                    tp += 1
+                elif predicted_match and not actual_match:
+                    fp += 1
+                elif not predicted_match and actual_match:
+                    fn += 1
+                else:
+                    tn += 1
+            progress_bar.update(1)
+
+        progress_bar.close()
+
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        return {
+            'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn,
+            'precision': precision, 'recall': recall, 'f1': f1,
+            'threshold': threshold,
+        }

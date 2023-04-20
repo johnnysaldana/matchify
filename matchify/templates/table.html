@@ -27,6 +27,8 @@
           <th>Model</th>
           <th>Top-10 predictions</th>
           <th>MRR</th>
+          <th>Confusion (TP / FP / TN / FN)</th>
+          <th>P / R / F1</th>
         </tr>
       </thead>
       <tbody>
@@ -35,6 +37,21 @@
             <td>{{ model_result.model_name }}</td>
             <td><pre>{{ model_result.predictions.to_string() }}</pre></td>
             <td class="mrr">{{ "%.4f"|format(model_result.mrr_score) }}</td>
+            <td class="mrr">
+              {% if model_result.confusion %}
+                {{ model_result.confusion.tp }} /
+                {{ model_result.confusion.fp }} /
+                {{ model_result.confusion.tn }} /
+                {{ model_result.confusion.fn }}
+              {% else %}-{% endif %}
+            </td>
+            <td class="mrr">
+              {% if model_result.confusion %}
+                {{ "%.3f"|format(model_result.confusion.precision) }} /
+                {{ "%.3f"|format(model_result.confusion.recall) }} /
+                {{ "%.3f"|format(model_result.confusion.f1) }}
+              {% else %}-{% endif %}
+            </td>
           </tr>
         {% endfor %}
       </tbody>
