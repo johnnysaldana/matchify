@@ -2,6 +2,7 @@ import random
 import numpy as np
 import pandas as pd
 import textdistance
+import jellyfish
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neural_network import MLPClassifier
@@ -44,6 +45,11 @@ class MLPMatchModel(ERBaseModel):
 
         self.preprocessed_data = self.preprocess(df)
         self.vectorizers = {}
+        # Per-record tfidf vector and jaccard token cache, populated in
+        # train(). Both are O(N) in the corpus; reusing them turns each
+        # pair feature extraction into a constant-time lookup.
+        self._tfidf_cache = {}
+        self._token_cache = {}
         self.classifier = None
 
     def preprocess(self, df) -> pd.DataFrame:
@@ -72,14 +78,24 @@ class MLPMatchModel(ERBaseModel):
 
     def _fit_vectorizers(self):
         for field in self.field_config:
-            if 'tfidf_cosine' in self._feature_methods(field):
-                col = self.df[field].fillna('').astype(str)
+            methods = self._feature_methods(field)
+            col = self.df[field].fillna('').astype(str)
+            if 'tfidf_cosine' in methods:
                 cleaned = col[col.str.len() > 0].values
-                if len(cleaned) == 0:
-                    continue
-                vec = TfidfVectorizer()
-                vec.fit(cleaned)
-                self.vectorizers[field] = vec
+                if len(cleaned) > 0:
+                    vec = TfidfVectorizer()
+                    vec.fit(cleaned)
+                    self.vectorizers[field] = vec
+                    # Pre-vectorize every record once
+                    matrix = vec.transform(col.values)
+                    for idx, vector_row in zip(self.df.index, matrix):
+                        self._tfidf_cache[(idx, field)] = vector_row
+            if 'jaccard' in methods:
+                # Pre-tokenize every record once
+                for idx, value in zip(self.df.index, col.values):
+                    self._token_cache[(idx, field)] = set(
+                        preprocess_string(value, filters=[strip_punctuation])
+                    )
 
     def _feature_methods(self, field):
         # By default each field contributes 4 similarity features. Users can
@@ -90,31 +106,41 @@ class MLPMatchModel(ERBaseModel):
 
     def _pair_features(self, row_a: pd.Series, row_b: pd.Series) -> np.ndarray:
         feats = []
+        idx_a = row_a.name if isinstance(row_a, pd.Series) else None
+        idx_b = row_b.name if isinstance(row_b, pd.Series) else None
         for field in self.field_config:
             v1, v2 = row_a.get(field), row_b.get(field)
             s1 = "" if pd.isna(v1) else str(v1)
             s2 = "" if pd.isna(v2) else str(v2)
             for method in self._feature_methods(field):
-                feats.append(self._compare(s1, s2, method, field))
+                feats.append(self._compare(s1, s2, method, field, idx_a, idx_b))
         return np.asarray(feats, dtype=float)
 
-    def _compare(self, s1: str, s2: str, method: str, field: str) -> float:
+    def _compare(self, s1: str, s2: str, method: str, field: str, idx_a=None, idx_b=None) -> float:
         if not s1 or not s2:
             return 0.0
         if method == 'jaro_winkler':
-            return textdistance.jaro_winkler(s1, s2)
+            return jellyfish.jaro_winkler_similarity(s1, s2)
         if method == 'levenshtein':
             return textdistance.levenshtein.normalized_similarity(s1, s2)
         if method == 'tfidf_cosine':
             vec = self.vectorizers.get(field)
             if vec is None:
                 return 0.0
-            t1 = vec.transform([s1])
-            t2 = vec.transform([s2])
+            t1 = self._tfidf_cache.get((idx_a, field))
+            if t1 is None:
+                t1 = vec.transform([s1])
+            t2 = self._tfidf_cache.get((idx_b, field))
+            if t2 is None:
+                t2 = vec.transform([s2])
             return float(cosine_similarity(t1, t2)[0][0])
         if method == 'jaccard':
-            tok_a = set(preprocess_string(s1, filters=[strip_punctuation]))
-            tok_b = set(preprocess_string(s2, filters=[strip_punctuation]))
+            tok_a = self._token_cache.get((idx_a, field))
+            if tok_a is None:
+                tok_a = set(preprocess_string(s1, filters=[strip_punctuation]))
+            tok_b = self._token_cache.get((idx_b, field))
+            if tok_b is None:
+                tok_b = set(preprocess_string(s2, filters=[strip_punctuation]))
             union = tok_a | tok_b
             return len(tok_a & tok_b) / len(union) if union else 0.0
         raise ValueError(f"Unsupported comparison method: {method}")
@@ -207,14 +233,21 @@ class MLPMatchModel(ERBaseModel):
 
         preprocessed_record = self.preprocess(record.to_frame().T).iloc[0]
         candidate_indices = self._apply_blocking(record)
+        if len(candidate_indices) == 0:
+            empty = self.df.iloc[0:0].copy()
+            empty['score'] = []
+            return empty
 
-        scores = []
-        for idx in candidate_indices:
-            feats = self._pair_features(preprocessed_record, self.preprocessed_data.loc[idx])
-            prob = float(self.classifier.predict_proba(feats.reshape(1, -1))[0][1])
-            scores.append((idx, prob))
+        # Build the full feature matrix and score all candidates in one
+        # predict_proba call - per-row predict_proba is dominated by Python
+        # overhead and is ~50x slower for typical candidate set sizes.
+        feats = np.vstack([
+            self._pair_features(preprocessed_record, self.preprocessed_data.loc[idx])
+            for idx in candidate_indices
+        ])
+        probs = self.classifier.predict_proba(feats)[:, 1]
 
-        scores_df = pd.DataFrame(scores, columns=['Index', 'score'])
+        scores_df = pd.DataFrame({'Index': list(candidate_indices), 'score': probs})
         sorted_scores = scores_df.sort_values(by='score', ascending=False).drop_duplicates().reset_index(drop=True)
 
         best_matches = self.df.loc[sorted_scores['Index']].reset_index(drop=True)

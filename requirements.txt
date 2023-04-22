@@ -3,6 +3,8 @@ numpy
 scikit-learn
 tqdm
 textdistance
+jellyfish
+python-Levenshtein
 gensim
 nameparser
 phonenumbers

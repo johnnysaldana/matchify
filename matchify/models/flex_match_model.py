@@ -1,5 +1,6 @@
 import pandas as pd
 import textdistance
+import jellyfish
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from gensim.parsing.preprocessing import preprocess_string, strip_punctuation
@@ -63,7 +64,7 @@ class FlexMatchModel(ERBaseModel):
         s1 = str(s1) or ""
         s2 = str(s2) or ""
         if method == 'jaro_winkler':
-            return textdistance.jaro_winkler(s1, s2)
+            return jellyfish.jaro_winkler_similarity(s1, s2)
         elif method == 'levenshtein':
             return textdistance.levenshtein.normalized_similarity(s1, s2)
         elif method == 'tfidf_cosine':

@@ -13,6 +13,8 @@ setup(
         'scikit-learn',
         'tqdm',
         'textdistance',
+        'jellyfish',
+        'python-Levenshtein',
         'gensim',
         'nameparser',
         'phonenumbers',
@@ -25,6 +27,17 @@ setup(
         'pyarrow',
         'sqlalchemy',
     ],
+    extras_require={
+        'deep': [
+            'torch>=2.0',
+            'transformers>=4.29',
+            'sentence-transformers>=2.2',
+            # Newer sentence-transformers wraps Hugging Face Trainer for
+            # fine-tuning (Siamese), which pulls in these directly.
+            'datasets',
+            'accelerate>=0.20',
+        ],
+    },
     entry_points={
         'console_scripts': [
             'matchify=matchify.cli:cli',
