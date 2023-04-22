@@ -4,7 +4,7 @@ from matchify.models.flex_match_model import FlexMatchModel
 from matchify.utils.data_splitter import DataSplitter
 from matchify.pipelines.entity_resolution_pipeline import EntityResolutionPipeline
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "ERBaseModel",
