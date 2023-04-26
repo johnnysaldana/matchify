@@ -44,7 +44,17 @@ def _build_model(model_name, df, ignored_columns, field_config, blocking_config)
             blocking_config=blocking_config,
             ignored_columns=ignored_columns,
         )
-    raise click.BadParameter(f"Unknown model '{model_name}'. Pick from: exact, flex, mlp.")
+    if model_name == "bert":
+        from matchify.models.bert_match_model import BertMatchModel
+        return BertMatchModel(
+            df,
+            field_config=field_config,
+            blocking_config=blocking_config,
+            ignored_columns=ignored_columns,
+        )
+    raise click.BadParameter(
+        f"Unknown model '{model_name}'. Pick from: exact, flex, mlp, bert."
+    )
 
 
 @cli.command("model-comparisons")
@@ -54,7 +64,8 @@ def _build_model(model_name, df, ignored_columns, field_config, blocking_config)
 )
 @click.option(
     "--models", "models", multiple=True, default=("exact", "flex"),
-    help="Models to evaluate (repeatable). One of: exact, flex, mlp.",
+    help="Models to evaluate (repeatable). One of: exact, flex, mlp, bert. "
+         "bert requires the [deep] extra.",
 )
 @click.option(
     "--limit", default=None, type=int,
