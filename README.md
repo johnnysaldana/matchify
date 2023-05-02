@@ -30,6 +30,11 @@ spanning the methodological progression in the field:
   TF-IDF cosine, Jaccard). Training pairs are sampled 50/50 from the
   `group_id` supervision; the model learns which features matter on each
   dataset rather than relying on a hand-tuned weighting.
+- `BertMatchModel` — pretrained sentence-transformer encoder
+  (`all-MiniLM-L6-v2` by default) over a concatenation of each record's
+  configured fields. The encoder runs once, the embedding matrix is cached,
+  and candidates are ranked by cosine similarity in embedding space.
+  Requires `pip install matchify[deep]`.
 
 Every model implements `mrr()` and `confusion_matrix(threshold)` on the base
 class so they can be compared apples-to-apples on any labelled benchmark.
@@ -50,7 +55,8 @@ confusion matrix:
 |---|---:|---:|---:|---:|
 | ExactMatchModel | 0.280 | 1.000 | 0.215 | 0.354 |
 | FlexMatchModel | 0.489 | 0.101 | 0.842 | 0.180 |
-| MLPMatchModel | **0.576** | 0.229 | **1.000** | **0.372** |
+| MLPMatchModel | 0.576 | 0.229 | **1.000** | **0.372** |
+| BertMatchModel | **0.604** | 0.124 | 0.952 | 0.220 |
 
 ### DBLP-ACM (500 records)
 
@@ -59,19 +65,21 @@ confusion matrix:
 | ExactMatchModel | 0.000 | 0.000 | 0.000 | 0.000 |
 | FlexMatchModel | 0.924 | 0.313 | 1.000 | 0.477 |
 | MLPMatchModel | **0.924** | **1.000** | **1.000** | **1.000** |
+| BertMatchModel | 0.920 | 0.613 | 0.996 | 0.759 |
 
-The MLP wins overall: it inherits the recall of FlexMatchModel (its features
-include all of FlexMatchModel's similarity metrics) but learns a calibrated
-match boundary that drops the precision-shredding false positives. On DBLP-ACM
-the field signal is nearly deterministic so the MLP achieves perfect
-classification at threshold 0.5.
+On Amazon-Google, BERT inches ahead of MLP on raw ranking quality (MRR
+0.60 vs 0.58) — the pretrained encoder generalises better across
+loose-text fields like product descriptions than hand-engineered string
+distances. On DBLP-ACM the title field is nearly deterministic so the
+MLP's calibrated 0.5 threshold edges out BERT's cosine threshold on
+precision; the two are tied on MRR.
 
 Reproduce with:
 
 ```bash
 matchify model-comparisons \
   --dataset amazon-google --dataset dblp-acm \
-  --models exact --models flex --models mlp \
+  --models exact --models flex --models mlp --models bert \
   --limit 500
 ```
 
