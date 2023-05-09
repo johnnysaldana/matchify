@@ -35,6 +35,11 @@ spanning the methodological progression in the field:
   configured fields. The encoder runs once, the embedding matrix is cached,
   and candidates are ranked by cosine similarity in embedding space.
   Requires `pip install matchify[deep]`.
+- `SiameseMatchModel` — the same encoder, fine-tuned with a contrastive
+  loss on positive/negative pairs sampled from the dataset's `group_id`
+  supervision. Twin-encoder architecture from the deep ER literature
+  (Mudgal et al., DeepER). Same `[deep]` extra; same cosine-ranking path
+  at inference.
 
 Every model implements `mrr()` and `confusion_matrix(threshold)` on the base
 class so they can be compared apples-to-apples on any labelled benchmark.
@@ -56,7 +61,8 @@ confusion matrix:
 | ExactMatchModel | 0.280 | 1.000 | 0.215 | 0.354 |
 | FlexMatchModel | 0.489 | 0.101 | 0.842 | 0.180 |
 | MLPMatchModel | 0.576 | 0.229 | **1.000** | **0.372** |
-| BertMatchModel | **0.604** | 0.124 | 0.952 | 0.220 |
+| BertMatchModel | 0.604 | 0.124 | 0.952 | 0.220 |
+| SiameseMatchModel | **0.648** | 0.089 | **1.000** | 0.163 |
 
 ### DBLP-ACM (500 records)
 
@@ -66,20 +72,33 @@ confusion matrix:
 | FlexMatchModel | 0.924 | 0.313 | 1.000 | 0.477 |
 | MLPMatchModel | **0.924** | **1.000** | **1.000** | **1.000** |
 | BertMatchModel | 0.920 | 0.613 | 0.996 | 0.759 |
+| SiameseMatchModel | **0.924** | 0.456 | **1.000** | 0.626 |
 
-On Amazon-Google, BERT inches ahead of MLP on raw ranking quality (MRR
-0.60 vs 0.58) — the pretrained encoder generalises better across
-loose-text fields like product descriptions than hand-engineered string
-distances. On DBLP-ACM the title field is nearly deterministic so the
-MLP's calibrated 0.5 threshold edges out BERT's cosine threshold on
-precision; the two are tied on MRR.
+Two stories in the data:
+
+- **Loose-text data (Amazon-Google):** the methodological progression
+  pays off. Each new tier — distance features → learned weighting (MLP)
+  → pretrained encoder (BERT) → fine-tuned encoder (Siamese) — raises
+  MRR. SiameseMatchModel wins on ranking by ~7 MRR points over BERT and
+  ~13 over MLP, because product descriptions reward an encoder that has
+  *seen this dataset's positive/negative pairs*.
+- **Structured data (DBLP-ACM):** the title field is nearly deterministic
+  so all four trained models converge on MRR 0.92–0.92. F1 separates
+  them: MLPMatchModel's calibrated 0.5 threshold yields perfect
+  classification (P=R=1.0); the cosine-similarity models rank the right
+  candidates first but score too many adjacent records above 0.5 at
+  inference time, hurting precision.
+
+Caveat: F1 is reported at a fixed `threshold=0.5` for all models. The
+cosine-similarity-based models (BERT, Siamese) would benefit from
+per-dataset threshold tuning that this comparison doesn't perform.
 
 Reproduce with:
 
 ```bash
 matchify model-comparisons \
   --dataset amazon-google --dataset dblp-acm \
-  --models exact --models flex --models mlp --models bert \
+  --models exact --models flex --models mlp --models bert --models siamese \
   --limit 500
 ```
 
