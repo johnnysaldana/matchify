@@ -209,6 +209,26 @@ matchify/
 └── setup.py
 ```
 
+## Reproducibility
+
+Every result in the table above can be regenerated end-to-end on a 2023
+laptop. The bundled CSVs are the exact files used to compute them. Pin
+your Python to 3.10–3.12, install the project, then:
+
+```bash
+matchify model-comparisons \
+  --dataset amazon-google --dataset dblp-acm \
+  --models exact --models flex --models mlp --models bert --models siamese \
+  --limit 500 --threshold 0.5 \
+  --output output.html
+```
+
+Total wall-clock on an M-series MacBook: ~3 min for the four trained
+models per dataset (Siamese fine-tuning dominates at ~80s on
+Amazon-Google, ~25s on DBLP-ACM). Drop `--models bert --models siamese`
+if you don't have the `[deep]` extra; the rules-based + MLP slice
+finishes in well under a minute.
+
 ## Citation
 
 If you use this software, please cite it. The canonical citation lives in

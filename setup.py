@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='matchify',
-    version='0.4.0',
+    version='1.0.0',
     packages=find_packages(),
     install_requires=[
         'pandas',
@@ -52,7 +52,7 @@ setup(
     keywords=['entity resolution', 'deduplication', 'record linkage', 'machine learning'],
     license='MIT',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Information Analysis',
