@@ -10,7 +10,7 @@ from tqdm import tqdm
 class ERBaseModel(abc.ABC):
     def __init__(self, df: pd.DataFrame, ignored_columns=None, **kwargs):
         self.df = df
-        self.ignored_columns = ignored_columns or []
+        self.ignored_columns = list(ignored_columns or [])
         self.ignored_columns += ['matchify_hash', 'predicted_group_id', 'score']
         self.is_clustered = False
         self.model = None
