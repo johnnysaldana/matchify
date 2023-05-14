@@ -35,4 +35,23 @@ DATASETS = {
             "title": {"method": "prefix", "threshold": 3},
         },
     },
+    "synthetic-people": {
+        "label": "Synthetic People",
+        "path": os.path.join(REPO_ROOT, "datasets/SyntheticPeople/CombinedPeople.csv"),
+        "ignored_columns": ["id", "group_id"],
+        "lookup_id": 1,
+        # Exercises the type-aware normalizers in ERBaseModel - the only
+        # bundled dataset that does so. Real-world benchmarks above use
+        # "other" and bypass _normalize_name/_phone/_address/_date.
+        "field_config": {
+            "first_name":   {"type": "name",    "comparison_method": "jaro_winkler"},
+            "last_name":    {"type": "name",    "comparison_method": "jaro_winkler"},
+            "birthdate":    {"type": "date",    "comparison_method": "jaro_winkler"},
+            "address":      {"type": "address", "comparison_method": "tfidf_cosine"},
+            "phone_number": {"type": "phone",   "comparison_method": "jaro_winkler"},
+        },
+        "blocking_config": {
+            "last_name": {"method": "prefix", "threshold": 2},
+        },
+    },
 }

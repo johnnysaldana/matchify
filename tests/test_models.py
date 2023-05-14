@@ -66,6 +66,32 @@ def test_mlp_match_model(
     assert 0.0 <= mrr <= 1.0
 
 
+def test_flex_match_model_type_aware_normalization(
+    synthetic_people_sample, synthetic_people_ignored,
+    synthetic_people_field_config, synthetic_people_blocking_config,
+):
+    """
+    The synthetic-people benchmark is the only bundled dataset that
+    exercises the type-aware normalization paths in ERBaseModel
+    (_normalize_name, _normalize_phone, _normalize_address,
+    _normalize_date). This test guards against regressions there.
+    """
+    from matchify.models.flex_match_model import FlexMatchModel
+    df = synthetic_people_sample.copy()
+    model = FlexMatchModel(
+        df,
+        field_config=synthetic_people_field_config,
+        blocking_config=synthetic_people_blocking_config,
+        ignored_columns=synthetic_people_ignored,
+    )
+    model.train()
+    record = df.iloc[0].drop(labels=synthetic_people_ignored)
+    preds = model.predict(record)
+    assert not preds.empty
+    mrr = model.mrr()
+    assert 0.0 <= mrr <= 1.0
+
+
 def test_confusion_matrix_basic(
     amazon_google_sample, amazon_google_ignored,
     amazon_google_field_config, amazon_google_blocking_config,

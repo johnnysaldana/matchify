@@ -20,6 +20,28 @@ def dblp_acm_sample():
     return pd.read_csv(path).head(100)
 
 
+@pytest.fixture(scope="session")
+def synthetic_people_sample():
+    """Small slice of the SyntheticPeople benchmark for fast tests."""
+    path = DATASETS["synthetic-people"]["path"]
+    return pd.read_csv(path).head(100)
+
+
+@pytest.fixture
+def synthetic_people_field_config():
+    return DATASETS["synthetic-people"]["field_config"]
+
+
+@pytest.fixture
+def synthetic_people_blocking_config():
+    return DATASETS["synthetic-people"]["blocking_config"]
+
+
+@pytest.fixture
+def synthetic_people_ignored():
+    return DATASETS["synthetic-people"]["ignored_columns"]
+
+
 @pytest.fixture
 def amazon_google_field_config():
     return {

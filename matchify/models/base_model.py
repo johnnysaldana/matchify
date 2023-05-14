@@ -25,14 +25,21 @@ class ERBaseModel(abc.ABC):
         pass
 
     def _normalize_name(self, name: str) -> str:
-        return str(nameparser.HumanName(name).lower())
+        # nameparser.HumanName parses the components; the .lower() belongs
+        # on the assembled string, not the HumanName instance.
+        return str(nameparser.HumanName(name)).lower()
 
     def _normalize_phone(self, phone: str) -> str:
+        # phonenumbers.parse() requires either an internationally-formatted
+        # number (with +) or an explicit region. Default to "US" so North
+        # American formats like "(555) 123-4567" round-trip; fall back to
+        # digit extraction if even the region-aware parse fails.
         try:
-            parsed_phone = phonenumbers.parse(phone, None)
+            parsed_phone = phonenumbers.parse(phone, "US")
             return phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164)
         except phonenumbers.NumberParseException:
-            return ""
+            digits = "".join(ch for ch in str(phone) if ch.isdigit())
+            return digits
 
     def _normalize_address(self, address: str) -> str:
         try:
