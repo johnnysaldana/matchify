@@ -238,9 +238,7 @@ class MLPMatchModel(ERBaseModel):
             empty['score'] = []
             return empty
 
-        # Build the full feature matrix and score all candidates in one
-        # predict_proba call - per-row predict_proba is dominated by Python
-        # overhead and is ~50x slower for typical candidate set sizes.
+        # Score all candidates in one batched predict_proba call.
         feats = np.vstack([
             self._pair_features(preprocessed_record, self.preprocessed_data.loc[idx])
             for idx in candidate_indices
