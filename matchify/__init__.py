@@ -5,7 +5,7 @@ from matchify.models.mlp_match_model import MLPMatchModel
 from matchify.utils.data_splitter import DataSplitter
 from matchify.pipelines.entity_resolution_pipeline import EntityResolutionPipeline
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 __all__ = [
     "ERBaseModel",

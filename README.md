@@ -136,12 +136,31 @@ git clone https://github.com/johnnysaldana/matchify.git
 cd matchify
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+make install-deep    # base + torch + transformers (BERT, Siamese)
+# or 'make install' for just the rules-based + MLP slice
 ```
 
-Python 3.10–3.12 is supported. `gensim` does not yet build on 3.13+; pin to
-3.12 if you hit a `gensim` install error.
+Python 3.10-3.12 is supported. `gensim` does not yet build on 3.13+, pin
+to 3.12 if you hit a `gensim` install error.
+
+## Easiest path: try everything
+
+```bash
+make bench          # all 5 models on all 3 datasets, 500 rows each, ~3 min
+make bench-quick    # same on 100 rows, ~1 min
+```
+
+Both write `output.html` with side-by-side predictions, MRR, and a
+confusion matrix per (model, dataset) pair. Underneath, `make bench` is
+just `matchify model-comparisons --all --limit 500`. Use the CLI
+directly if you want to subset:
+
+```bash
+matchify model-comparisons \
+  --dataset dblp-acm \
+  --models flex --models mlp \
+  --limit 200
+```
 
 ## Quickstart
 

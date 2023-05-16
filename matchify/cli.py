@@ -65,6 +65,26 @@ def _build_model(model_name, df, ignored_columns, field_config, blocking_config)
     )
 
 
+ALL_MODELS = ("exact", "flex", "mlp", "bert", "siamese")
+
+
+def _available_models(requested):
+    """Filter the requested model list to those importable in the current env."""
+    import importlib.util
+    has_deep = importlib.util.find_spec("sentence_transformers") is not None
+    out = []
+    for m in requested:
+        if m in ("bert", "siamese") and not has_deep:
+            click.echo(
+                f"  (skipping '{m}': requires the [deep] extra. "
+                f"Install with `pip install matchify[deep]`.)",
+                err=True,
+            )
+            continue
+        out.append(m)
+    return tuple(out)
+
+
 @cli.command("model-comparisons")
 @click.option(
     "--dataset", "datasets", multiple=True, default=("amazon-google",),
@@ -72,8 +92,14 @@ def _build_model(model_name, df, ignored_columns, field_config, blocking_config)
 )
 @click.option(
     "--models", "models", multiple=True, default=("exact", "flex"),
-    help="Models to evaluate (repeatable). One of: exact, flex, mlp, bert, siamese. "
+    help="Models to evaluate (repeatable). One of: " + ", ".join(ALL_MODELS) + ". "
          "bert and siamese require the [deep] extra.",
+)
+@click.option(
+    "--all", "run_all", is_flag=True, default=False,
+    help="Run every bundled dataset against every available model. "
+         "Overrides --dataset and --models. The deep models are skipped "
+         "automatically if the [deep] extra isn't installed.",
 )
 @click.option(
     "--limit", default=None, type=int,
@@ -91,11 +117,24 @@ def _build_model(model_name, df, ignored_columns, field_config, blocking_config)
     "--confusion/--no-confusion", default=True,
     help="Compute and emit the confusion matrix (slower; uses --threshold).",
 )
-def model_comparisons(datasets, models, limit, output_path, threshold, confusion):
-    """Run the configured models on the configured datasets and write an HTML report."""
+def model_comparisons(datasets, models, run_all, limit, output_path, threshold, confusion):
+    """Run the configured models on the configured datasets and write an HTML report.
+
+    Quickstart - try every model on every dataset on a 500-row slice:
+
+        matchify model-comparisons --all --limit 500
+    """
     import pandas as pd
 
     warnings.filterwarnings("ignore")
+
+    if run_all:
+        datasets = tuple(DATASETS.keys())
+        models = ALL_MODELS
+
+    models = _available_models(models)
+    if not models:
+        raise click.ClickException("No runnable models. Install [deep] or pick from: exact, flex, mlp.")
 
     dataset_results = []
     for dataset_key in datasets:
