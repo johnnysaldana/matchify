@@ -28,6 +28,23 @@ DATASETS = {
             "name": {"method": "prefix", "threshold": 2},
         },
     },
+    "abt-buy": {
+        "label": "Abt-Buy",
+        "path": os.path.join(REPO_ROOT, "datasets/Abt-Buy/CombinedProducts.csv"),
+        "ignored_columns": ["id", "group_id", "original_id"],
+        "lookup_id": 8,
+        # same fields as Amazon-Google. Abt has no manufacturer column,
+        # so that field is empty for half the rows.
+        "field_config": {
+            "name":         {"type": "other", "comparison_method": "jaro_winkler"},
+            "description":  {"type": "other", "comparison_method": "tfidf_cosine"},
+            "manufacturer": {"type": "other", "comparison_method": "jaro_winkler"},
+            "price":        {"type": "other", "comparison_method": "jaro_winkler"},
+        },
+        "blocking_config": {
+            "name": {"method": "prefix", "threshold": 2},
+        },
+    },
     "dblp-acm": {
         "label": "DBLP-ACM",
         "path": os.path.join(REPO_ROOT, "datasets/DBLP-ACM/CombinedAcademic.csv"),

@@ -27,6 +27,13 @@ def synthetic_people_sample():
     return pd.read_csv(path).head(100)
 
 
+@pytest.fixture(scope="session")
+def abt_buy_sample():
+    """Small slice of the Abt-Buy benchmark for fast tests."""
+    path = DATASETS["abt-buy"]["path"]
+    return pd.read_csv(path).head(100)
+
+
 @pytest.fixture
 def synthetic_people_field_config():
     return DATASETS["synthetic-people"]["field_config"]
