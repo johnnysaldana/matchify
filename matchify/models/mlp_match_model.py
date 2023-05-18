@@ -13,14 +13,12 @@ from typing import Dict
 
 class MLPMatchModel(ERBaseModel):
     """
-    A supervised entity-resolution model that turns each candidate pair into
-    a fixed feature vector of per-field similarity scores and feeds it to a
-    scikit-learn MLPClassifier. Predicted match probability is used as the
-    ranking score.
+    Supervised model. Turns each candidate pair into a fixed feature
+    vector of per-field similarity scores and feeds it to an
+    MLPClassifier. Match probability is the ranking score.
 
-    Training pairs are drawn from the same `group_id` supervision used by
-    MRR: positives are pairs that share a group_id, negatives are sampled
-    pairs that don't. The default sampling ratio is 50/50.
+    Training pairs come from the same group_id supervision as MRR.
+    Positives share a group_id, negatives don't. 50/50 by default.
     """
 
     def __init__(
@@ -45,9 +43,8 @@ class MLPMatchModel(ERBaseModel):
 
         self.preprocessed_data = self.preprocess(df)
         self.vectorizers = {}
-        # Per-record tfidf vector and jaccard token cache, populated in
-        # train(). Both are O(N) in the corpus; reusing them turns each
-        # pair feature extraction into a constant-time lookup.
+        # tfidf vector and jaccard token cache. populated in train() so
+        # pair feature extraction reuses them instead of recomputing.
         self._tfidf_cache = {}
         self._token_cache = {}
         self.classifier = None
@@ -86,20 +83,20 @@ class MLPMatchModel(ERBaseModel):
                     vec = TfidfVectorizer()
                     vec.fit(cleaned)
                     self.vectorizers[field] = vec
-                    # Pre-vectorize every record once
+                    # vectorize every record once
                     matrix = vec.transform(col.values)
                     for idx, vector_row in zip(self.df.index, matrix):
                         self._tfidf_cache[(idx, field)] = vector_row
             if 'jaccard' in methods:
-                # Pre-tokenize every record once
+                # tokenize every record once
                 for idx, value in zip(self.df.index, col.values):
                     self._token_cache[(idx, field)] = set(
                         preprocess_string(value, filters=[strip_punctuation])
                     )
 
     def _feature_methods(self, field):
-        # By default each field contributes 4 similarity features. Users can
-        # narrow it via field_config[field]['features'].
+        # 4 similarity features per field by default.
+        # override via field_config[field]['features'].
         return self.field_config[field].get(
             'features', ['jaro_winkler', 'levenshtein', 'tfidf_cosine', 'jaccard']
         )
@@ -146,14 +143,14 @@ class MLPMatchModel(ERBaseModel):
         raise ValueError(f"Unsupported comparison method: {method}")
 
     def _sample_training_pairs(self):
-        """Sample positive and negative pairs from group_id supervision."""
+        """Pull positive and negative pairs from group_id supervision."""
         if 'group_id' not in self.df.columns:
             raise Exception('MLPMatchModel requires a group_id column for training')
 
         rng = random.Random(self.random_state)
         df = self.df
 
-        # Positive pairs: two distinct rows within the same group
+        # positives: two distinct rows in the same group
         groups = df.dropna(subset=['group_id']).groupby('group_id').indices
         candidate_groups = [idxs for idxs in groups.values() if len(idxs) >= 2]
 
@@ -168,7 +165,7 @@ class MLPMatchModel(ERBaseModel):
             i, j = rng.sample(list(grp), 2)
             positives.append((i, j))
 
-        # Negative pairs: two rows from different groups
+        # negatives: two rows from different groups
         all_indices = df.index.to_list()
         group_lookup = df['group_id'].to_dict()
         negatives = []

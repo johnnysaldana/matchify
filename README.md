@@ -11,35 +11,34 @@ Zenodo for citation; see `CITATION.cff` for the canonical citation.
 
 ## Overview
 
-Entity resolution is the task of identifying records — across one or more data
-sources — that refer to the same real-world entity. `matchify` exposes a
-common abstract `ERBaseModel` interface and ships three concrete models
-spanning the methodological progression in the field:
+Entity resolution is the task of identifying records, across one or more
+data sources, that refer to the same real-world entity. `matchify`
+exposes a common abstract `ERBaseModel` interface and ships three
+concrete models spanning the methodological progression in the field:
 
-- `ExactMatchModel` — a hash-based exact-match baseline. No training, no
-  blocking, no field-aware logic. Useful as a lower bound and as a sanity
-  check on a deduplicated dataset.
-- `FlexMatchModel` — a configurable, field-aware similarity model. Supports
-  per-field type-aware normalization (`name`, `phone`, `address`, `date`),
-  per-field comparison methods (Jaro-Winkler, Levenshtein, TF-IDF cosine,
-  Jaccard), and blocking strategies (`prefix`, `sorted_neighborhood`,
-  `block`, `full`). The TF-IDF vectorizer is fit on the corpus during
-  `train()`.
-- `MLPMatchModel` — a supervised multilayer perceptron over a fixed
-  feature vector of per-field similarity scores (Jaro-Winkler, Levenshtein,
-  TF-IDF cosine, Jaccard). Training pairs are sampled 50/50 from the
-  `group_id` supervision; the model learns which features matter on each
-  dataset rather than relying on a hand-tuned weighting.
-- `BertMatchModel` — pretrained sentence-transformer encoder
+- `ExactMatchModel`: hash-based exact-match baseline. No training, no
+  blocking, no field-aware logic. Useful as a lower bound and as a
+  sanity check on a deduplicated dataset.
+- `FlexMatchModel`: configurable, field-aware similarity model. Supports
+  per-field type-aware normalization (`name`, `phone`, `address`,
+  `date`), per-field comparison methods (Jaro-Winkler, Levenshtein,
+  TF-IDF cosine, Jaccard), and blocking strategies (`prefix`,
+  `sorted_neighborhood`, `block`, `full`). TF-IDF vectorizer is fit on
+  the corpus in `train()`.
+- `MLPMatchModel`: supervised MLP over a fixed feature vector of
+  per-field similarity scores (Jaro-Winkler, Levenshtein, TF-IDF cosine,
+  Jaccard). Training pairs are sampled 50/50 from the `group_id`
+  supervision so the model learns which features matter per dataset
+  instead of relying on a hand-tuned weighting.
+- `BertMatchModel`: pretrained sentence-transformer encoder
   (`all-MiniLM-L6-v2` by default) over a concatenation of each record's
-  configured fields. The encoder runs once, the embedding matrix is cached,
+  configured fields. Encoder runs once, the embedding matrix is cached,
   and candidates are ranked by cosine similarity in embedding space.
-  Requires `pip install matchify[deep]`.
-- `SiameseMatchModel` — the same encoder, fine-tuned with a contrastive
-  loss on positive/negative pairs sampled from the dataset's `group_id`
-  supervision. Twin-encoder architecture from the deep ER literature
-  (Mudgal et al., DeepER). Same `[deep]` extra; same cosine-ranking path
-  at inference.
+  Needs `pip install matchify[deep]`.
+- `SiameseMatchModel`: same encoder, fine-tuned with a contrastive loss
+  on positive/negative pairs sampled from `group_id`. Twin-encoder
+  architecture from the deep ER literature (Mudgal et al., DeepER). Same
+  `[deep]` extra, same cosine-ranking path at inference.
 
 Every model implements `mrr()` and `confusion_matrix(threshold)` on the base
 class so they can be compared apples-to-apples on any labelled benchmark.
@@ -89,20 +88,20 @@ normalizers (`name`, `phone`, `address`, `date`).
 | BertMatchModel | **0.629** | 0.133 | **1.000** | 0.235 |
 | SiameseMatchModel | 0.626 | 0.406 | **1.000** | 0.578 |
 
-The four trained models cluster tightly on MRR (~0.62–0.63), so on
-this dataset the deciding factor is precision at threshold 0.5 — the
-MLP comes out ahead. ExactMatchModel performs much better here than on
-the other benchmarks because the synthetic generator does produce
-perfect-duplicate records (~20% of the population); its recall is
-capped by the close-match population it can never catch.
+The four trained models cluster tightly on MRR (~0.62-0.63), so on
+this dataset the deciding factor is precision at threshold 0.5, and
+the MLP comes out ahead. ExactMatchModel performs much better here
+than on the other benchmarks because the synthetic generator does
+produce perfect-duplicate records (~20% of the population). Its recall
+is capped by the close-match population it can never catch.
 
 Three stories in the data:
 
 - **Loose-text data (Amazon-Google):** the methodological progression
-  pays off. Each new tier — distance features → learned weighting (MLP)
-  → pretrained encoder (BERT) → fine-tuned encoder (Siamese) — raises
-  MRR. SiameseMatchModel wins on ranking by ~7 MRR points over BERT and
-  ~13 over MLP, because product descriptions reward an encoder that has
+  pays off. Each new tier (distance features, learned weighting (MLP),
+  pretrained encoder (BERT), fine-tuned encoder (Siamese)) raises MRR.
+  SiameseMatchModel wins on ranking by ~7 MRR points over BERT and ~13
+  over MLP, because product descriptions reward an encoder that has
   *seen this dataset's positive/negative pairs*.
 - **Structured data (DBLP-ACM):** the title field is nearly deterministic
   so all four trained models converge on MRR 0.92–0.92. F1 separates
@@ -217,14 +216,14 @@ per record, with an `id`, the original source-table identifier under
 `original_id`, and a `group_id` for supervision (records with the same
 `group_id` are duplicates of one another).
 
-- `datasets/Amazon-GoogleProducts/` — e-commerce, ~3.7K records,
-  fields: name, description, manufacturer, price.
-- `datasets/DBLP-ACM/` — bibliographic, ~5K records,
-  fields: title, authors, venue, year.
-- `datasets/SyntheticPeople/` — synthetic person records (500), reproducible
-  via `matchify.utils.synthetic_data_generation.person_faker`. The only
-  bundled dataset that exercises the type-aware normalizers (`name`,
-  `phone`, `address`, `date`) on `ERBaseModel`.
+- `datasets/Amazon-GoogleProducts/`: e-commerce, ~3.7K records, fields:
+  name, description, manufacturer, price.
+- `datasets/DBLP-ACM/`: bibliographic, ~5K records, fields: title,
+  authors, venue, year.
+- `datasets/SyntheticPeople/`: synthetic person records (500),
+  reproducible via `matchify.utils.synthetic_data_generation.person_faker`.
+  The only bundled dataset that exercises the type-aware normalizers
+  (`name`, `phone`, `address`, `date`) on `ERBaseModel`.
 
 Each directory has a small notebook or README documenting how the combined
 CSV was built from the upstream source tables.
@@ -286,7 +285,7 @@ If you use this software, please cite it. The canonical citation lives in
 
 ## License
 
-MIT — see `LICENSE`.
+MIT, see `LICENSE`.
 
 ## Acknowledgements
 

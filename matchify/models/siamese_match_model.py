@@ -1,3 +1,17 @@
+"""
+Siamese entity-resolution model.
+
+Fine-tunes a sentence-transformer with contrastive loss on positive
+(same-group_id) and negative (different-group_id) pairs from the
+training data, then ranks candidates by cosine similarity in the
+fine-tuned encoder's embedding space.
+
+Canonical twin-encoder Siamese (Mudgal et al., DeepER) on top of
+sentence-transformers' SentenceTransformer + ContrastiveLoss.
+
+Needs the [deep] extra: pip install matchify[deep].
+"""
+
 import os
 import random
 import tempfile
@@ -145,7 +159,7 @@ class SiameseMatchModel(ERBaseModel):
         )
         self.save_path = save_dir
 
-        # Cache embeddings of every record under the fine-tuned encoder
+        # cache embeddings under the fine-tuned encoder
         texts = [self._record_text(row) for _, row in self.df.iterrows()]
         self.embeddings = self.encoder.encode(
             texts,

@@ -1,11 +1,7 @@
-"""
-Tests for the type-aware normalizers on ERBaseModel.
+"""Tests for the type-aware normalizers on ERBaseModel.
 
-Both bundled real-world benchmarks (Amazon-Google, DBLP-ACM) use
-type='other' and bypass these code paths entirely; only the
-synthetic-people benchmark exercises them, so these tests guard
-against regressions in the rarely-traveled normalization paths.
-"""
+Real-world benchmarks all use type='other' and skip these, so only
+synthetic-people hits them. These tests guard the rarely-used path."""
 import pandas as pd
 import pytest
 
@@ -13,8 +9,6 @@ from matchify.models.base_model import ERBaseModel
 
 
 class _StubModel(ERBaseModel):
-    """Concrete subclass to satisfy ERBaseModel's ABC contract."""
-
     def preprocess(self, df, ignored_columns=None):
         return df
 
@@ -37,12 +31,12 @@ def test_normalize_name_lowercases_and_parses(model):
 
 
 def test_normalize_name_handles_complex_input(model):
-    # Should not raise on names with apostrophes, hyphens, suffixes
+    # apostrophes, hyphens, suffixes shouldn't crash
     assert "o'neil" in model._normalize_name("Mary-Jane O'Neil III")
 
 
 def test_normalize_phone_us_default(model):
-    # US-formatted numbers without explicit country prefix should parse
+    # US numbers without country prefix should parse
     assert model._normalize_phone("(415) 555-1234") == "+14155551234"
     assert model._normalize_phone("415.555.1234") == "+14155551234"
 
@@ -52,10 +46,9 @@ def test_normalize_phone_international(model):
 
 
 def test_normalize_phone_falls_back_to_digits(model):
-    # If phonenumbers can't make sense of the string at all, we shouldn't
-    # crash - we return an empty string.
+    # if phonenumbers can't parse it at all, return empty string instead of crashing
     assert model._normalize_phone("garbage") == ""
-    # Empty input is benign.
+    # empty input is fine
     assert model._normalize_phone("") == ""
 
 

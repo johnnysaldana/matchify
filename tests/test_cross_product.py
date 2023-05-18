@@ -1,12 +1,11 @@
 """
-Cross-product smoke tests: every bundled (dataset, model) combination on a
-tiny slice. Guards against integration bugs that per-model unit tests
-miss - e.g. a dataset's field_config not being compatible with a model's
-preprocessing path, or a registry entry pointing at a stale CSV.
+Cross-product smoke tests. Every bundled (dataset, model) combo on a
+tiny slice. Catches integration bugs that per-model tests miss, like
+a dataset's field_config not playing well with a model's preprocessing,
+or a registry entry pointing at a stale CSV.
 
-Each combination just trains and predicts a single record. No MRR or
-confusion-matrix - those are exercised in test_models.py at sample-size
-100 and don't need to fan out across the matrix here.
+Just trains and predicts a single record per combo. No MRR or confusion
+matrix here, those run in test_models.py.
 """
 import importlib.util
 import warnings
@@ -100,8 +99,8 @@ def test_deep_model_on_dataset(model_name, dataset_key):
 
 
 def test_dataset_registry_files_exist():
-    """Every dataset in the registry should point at a readable CSV with
-    the supervision columns the rest of the code expects."""
+    """Every registry entry points at a readable CSV with the supervision
+    columns the rest of the code expects."""
     import os
     for key, cfg in DATASETS.items():
         assert os.path.isfile(cfg["path"]), f"{key}: missing CSV at {cfg['path']}"

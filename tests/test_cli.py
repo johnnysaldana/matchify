@@ -49,7 +49,7 @@ def test_cli_all_flag(tmp_path):
         ["model-comparisons", "--all", "--limit", "30", "--no-confusion", "--output", str(out)],
     )
     assert result.exit_code == 0, result.output
-    # Every bundled dataset should show up in the output
+    # every bundled dataset should show up in the output
     assert "Amazon-Google Products" in result.output
     assert "DBLP-ACM" in result.output
     assert "Synthetic People" in result.output

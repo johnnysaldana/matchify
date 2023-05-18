@@ -1,12 +1,11 @@
 """
-BERT-based entity-resolution model using sentence-transformers.
+BERT entity-resolution model using sentence-transformers.
 
-Each record's configured fields are concatenated into a single text and
-encoded once (cached on the model), then candidate matches are ranked by
-cosine similarity in embedding space. Optionally a blocking step prunes
-the candidate set first.
+Concatenate each record's configured fields into one text, encode the
+corpus once (cached), rank candidates by cosine similarity. Blocking
+step optional.
 
-Requires the [deep] extra: `pip install matchify[deep]`.
+Needs the [deep] extra: pip install matchify[deep].
 """
 
 import numpy as np
@@ -76,7 +75,7 @@ class BertMatchModel(ERBaseModel):
         return " | ".join(parts)
 
     def train(self):
-        """Encode every record in the dataset once and cache the embedding matrix."""
+        """Encode every record once, cache the embedding matrix."""
         texts = [self._record_text(row) for _, row in self.df.iterrows()]
         self.embeddings = self.encoder.encode(
             texts,
@@ -118,7 +117,7 @@ class BertMatchModel(ERBaseModel):
         positions = [self.df.index.get_loc(i) for i in candidate_indices]
         cand_embs = self.embeddings[positions]
 
-        # dot product is cosine similarity
+        # dot product is cosine since the embeddings are normalized
         scores = cand_embs @ q_emb
 
         results = pd.DataFrame({

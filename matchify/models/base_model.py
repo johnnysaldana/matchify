@@ -25,15 +25,12 @@ class ERBaseModel(abc.ABC):
         pass
 
     def _normalize_name(self, name: str) -> str:
-        # nameparser.HumanName parses the components; the .lower() belongs
-        # on the assembled string, not the HumanName instance.
+        # .lower() goes on the string, not on the HumanName instance
         return str(nameparser.HumanName(name)).lower()
 
     def _normalize_phone(self, phone: str) -> str:
-        # phonenumbers.parse() requires either an internationally-formatted
-        # number (with +) or an explicit region. Default to "US" so North
-        # American formats like "(555) 123-4567" round-trip; fall back to
-        # digit extraction if even the region-aware parse fails.
+        # phonenumbers.parse needs a region for non-international numbers.
+        # default to US so "(555) 123-4567" works. fall back to digits.
         try:
             parsed_phone = phonenumbers.parse(phone, "US")
             return phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164)
@@ -166,14 +163,11 @@ class ERBaseModel(abc.ABC):
 
     def confusion_matrix(self, threshold: float = 0.5):
         """
-        Tally TP / FP / TN / FN over every candidate pair the model produces
-        across the dataset, treating "predicted match" as score >= threshold
-        and "actual match" as a shared group_id.
+        TP/FP/TN/FN over every candidate pair the model produces.
+        Predicted match is score >= threshold, actual match is shared
+        group_id. Self-pairs are excluded.
 
-        Self-pairs (a record matched against itself) are excluded.
-
-        Returns:
-            dict with keys tp, fp, tn, fn, precision, recall, f1.
+        Returns dict with tp, fp, tn, fn, precision, recall, f1.
         """
         if 'group_id' not in self.df.columns:
             raise Exception('confusion_matrix requires group_id column')

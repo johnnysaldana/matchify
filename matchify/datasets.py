@@ -1,3 +1,11 @@
+"""
+Registry of bundled benchmark datasets.
+
+Each entry pairs a Combined*.csv (one row per record, with id/group_id
+columns) with default field/blocking configs for that dataset. The CLI
+uses these to drive multi-dataset comparison runs.
+"""
+
 import os
 
 
@@ -40,9 +48,8 @@ DATASETS = {
         "path": os.path.join(REPO_ROOT, "datasets/SyntheticPeople/CombinedPeople.csv"),
         "ignored_columns": ["id", "group_id"],
         "lookup_id": 1,
-        # Exercises the type-aware normalizers in ERBaseModel - the only
-        # bundled dataset that does so. Real-world benchmarks above use
-        # "other" and bypass _normalize_name/_phone/_address/_date.
+        # only bundled dataset that uses type='name'/'phone'/'address'/'date'.
+        # the real-world benchmarks above use 'other' and skip the normalizers.
         "field_config": {
             "first_name":   {"type": "name",    "comparison_method": "jaro_winkler"},
             "last_name":    {"type": "name",    "comparison_method": "jaro_winkler"},

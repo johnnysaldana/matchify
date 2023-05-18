@@ -1,6 +1,13 @@
 """
 Generate synthetic person records with controlled duplication for
 entity-resolution evaluation.
+
+Each row has id, group_id, and the five fields. Records sharing a
+group_id are considered duplicates. Same id/group_id contract as
+CombinedProducts.csv and CombinedAcademic.csv, so the output CSV
+plugs straight into MRR and confusion_matrix.
+
+Reproducible. Pass --seed (default 0) to fix the RNG.
 """
 
 import argparse
@@ -14,25 +21,25 @@ FIELDS = ('first_name', 'last_name', 'birthdate', 'address', 'phone_number')
 
 
 def perturb_record(record, fake):
-    """Return a copy of `record` with one field minimally corrupted."""
+    """Copy of record with one field minimally corrupted."""
     field_to_change = random.randint(0, len(record) - 1)
     perturbed_record = list(record)
 
     if field_to_change == 0 or field_to_change == 1:
-        # Drop a leading or trailing character from the name
+        # drop a leading or trailing char from the name
         original = record[field_to_change] or ""
         if len(original) > 1:
             perturbed_record[field_to_change] = random.choice(
                 [original[1:], original[:-1]]
             )
     elif field_to_change == 2:
-        # Replace the date of birth with a different one
+        # different date of birth
         perturbed_record[field_to_change] = fake.date_of_birth(minimum_age=18, maximum_age=100)
     elif field_to_change == 3:
-        # Mangle the address punctuation
+        # mangle address punctuation
         perturbed_record[field_to_change] = record[field_to_change].replace(",", ";")
     else:
-        # Truncate the phone number
+        # truncate phone number
         perturbed_record[field_to_change] = record[field_to_change][:-1]
 
     return tuple(perturbed_record)
@@ -47,12 +54,12 @@ def generate_synthetic_data(
     seed=0,
 ):
     """
-    Build a synthetic person-record dataset and write it to `output_file`.
+    Build a synthetic person-record dataset and write it to output_file.
 
-    Each unique record is assigned a fresh group_id. Duplicates and
-    close-matches inherit their source unique record's group_id, so the
-    group_id column functions as the supervised signal for MRR. Close
-    non-matches get singleton group_ids and act as hard negatives.
+    Each unique record gets a fresh group_id. Duplicates and close-matches
+    inherit the source record's group_id, so group_id is the supervised
+    signal for MRR. Close non-matches get singleton group_ids and act as
+    hard negatives.
     """
     fake = Faker()
     Faker.seed(seed)
@@ -61,7 +68,7 @@ def generate_synthetic_data(
     unique_percentage = 1 - duplicate_percentage - close_match_percentage - close_nonmatch_percentage
     num_unique_records = int(num_records * unique_percentage)
 
-    # All records carry: (group_id, fields_tuple).
+    # all records carry (group_id, fields_tuple)
     next_group_id = 1
     unique_records = []
     for _ in range(num_unique_records):
@@ -75,22 +82,22 @@ def generate_synthetic_data(
         unique_records.append((next_group_id, record))
         next_group_id += 1
 
-    # Duplicates are exact copies of a unique record - same group_id.
+    # duplicates: exact copies of a unique record, same group_id
     duplicates = []
     n_dupes = int(num_records * duplicate_percentage)
     for _ in range(n_dupes):
         gid, rec = random.choice(unique_records)
         duplicates.append((gid, rec))
 
-    # Close matches: perturbed copies of a unique record - same group_id.
+    # close matches: perturbed copies of a unique record, same group_id
     close_matches = []
     n_close = int(num_records * close_match_percentage)
     for _ in range(n_close):
         gid, rec = random.choice(unique_records)
         close_matches.append((gid, perturb_record(rec, fake)))
 
-    # Close non-matches: perturbed records that don't actually correspond
-    # to any other record. Each gets its own group_id (singleton group).
+    # close non-matches: perturbed records that don't correspond to
+    # any other record. each gets its own singleton group_id.
     close_nonmatches = []
     seen_records = {rec for _, rec in unique_records + duplicates + close_matches}
     n_nonmatch = int(num_records * close_nonmatch_percentage)

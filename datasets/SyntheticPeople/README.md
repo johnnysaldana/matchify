@@ -26,6 +26,6 @@ Composition (500 records, seed=0):
 - ~20% close-matches (one perturbed character/field) of unique records
 - ~10% close-non-matches (perturbed but corresponding to no other record)
 
-Useful as a controlled ground truth that lets the type-aware normalizers
-do meaningful work — both bundled real-world benchmarks (Amazon-Google,
-DBLP-ACM) use `type: "other"` and bypass the normalization paths.
+Only bundled dataset that exercises the type-aware normalizers. The
+real-world benchmarks (Amazon-Google, Abt-Buy, DBLP-ACM) all use
+`type: "other"`.

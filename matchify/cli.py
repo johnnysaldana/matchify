@@ -22,8 +22,8 @@ def generate_html_table(dataset_results):
 
 
 def _build_model(model_name, df, ignored_columns, field_config, blocking_config):
-    # Each model gets its own copy: ExactMatchModel mutates self.df during
-    # clustering and FlexMatchModel's preprocess() rewrites field columns.
+    # each model gets its own copy. ExactMatchModel mutates self.df,
+    # FlexMatchModel rewrites columns.
     df = df.copy()
     if model_name == "exact":
         from matchify.models.exact_match_model import ExactMatchModel
@@ -69,7 +69,7 @@ ALL_MODELS = ("exact", "flex", "mlp", "bert", "siamese")
 
 
 def _available_models(requested):
-    """Filter the requested model list to those importable in the current env."""
+    """Drop bert/siamese if sentence_transformers isn't installed."""
     import importlib.util
     has_deep = importlib.util.find_spec("sentence_transformers") is not None
     out = []
@@ -118,9 +118,9 @@ def _available_models(requested):
     help="Compute and emit the confusion matrix (slower; uses --threshold).",
 )
 def model_comparisons(datasets, models, run_all, limit, output_path, threshold, confusion):
-    """Run the configured models on the configured datasets and write an HTML report.
+    """Run the configured models on the configured datasets, write HTML report.
 
-    Quickstart - try every model on every dataset on a 500-row slice:
+    Try everything on a 500-row slice:
 
         matchify model-comparisons --all --limit 500
     """
@@ -149,7 +149,7 @@ def model_comparisons(datasets, models, run_all, limit, output_path, threshold, 
             df = df.head(limit)
         ignored_columns = cfg["ignored_columns"]
 
-        # Pick a sample lookup record from the dataset's configured lookup_id
+        # sample lookup record for the predictions table
         record = df[df["id"] == cfg["lookup_id"]].iloc[0]
         record = record[[x for x in record.index if x not in ignored_columns]]
 

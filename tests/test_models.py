@@ -1,9 +1,8 @@
 """Smoke tests for the bundled models.
 
-These run on a 100-row slice of Amazon-Google and assert that each model
-produces a sane MRR (>= 0 and <= 1) and a non-empty prediction set. The
-goal is to catch regressions in the public API and basic plumbing - not
-to validate accuracy.
+100-row slice of Amazon-Google. Checks each model produces a sane MRR
+(0..1) and non-empty preds. Catches API/plumbing regressions, not
+accuracy.
 """
 import warnings
 
@@ -71,10 +70,9 @@ def test_flex_match_model_type_aware_normalization(
     synthetic_people_field_config, synthetic_people_blocking_config,
 ):
     """
-    The synthetic-people benchmark is the only bundled dataset that
-    exercises the type-aware normalization paths in ERBaseModel
-    (_normalize_name, _normalize_phone, _normalize_address,
-    _normalize_date). This test guards against regressions there.
+    synthetic-people is the only bundled dataset that exercises the
+    type-aware normalizers (_normalize_name, _normalize_phone,
+    _normalize_address, _normalize_date). guards against regressions.
     """
     from matchify.models.flex_match_model import FlexMatchModel
     df = synthetic_people_sample.copy()
