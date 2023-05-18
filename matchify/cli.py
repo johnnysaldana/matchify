@@ -117,7 +117,12 @@ def _available_models(requested):
     "--confusion/--no-confusion", default=True,
     help="Compute and emit the confusion matrix (slower; uses --threshold).",
 )
-def model_comparisons(datasets, models, run_all, limit, output_path, threshold, confusion):
+@click.option(
+    "--pr-curves", "pr_curves_dir", default=None, type=str,
+    help="Directory to write per-dataset precision/recall PNGs to. "
+         "Sweeps thresholds 0..1 in 0.02 steps for every model.",
+)
+def model_comparisons(datasets, models, run_all, limit, output_path, threshold, confusion, pr_curves_dir):
     """Run the configured models on the configured datasets, write HTML report.
 
     Try everything on a 500-row slice:
@@ -154,6 +159,7 @@ def model_comparisons(datasets, models, run_all, limit, output_path, threshold, 
         record = record[[x for x in record.index if x not in ignored_columns]]
 
         model_results = []
+        sweep_results = []
         for model_name in models:
             click.echo(f"  - {model_name}: training/predicting...")
             model = _build_model(
@@ -167,12 +173,22 @@ def model_comparisons(datasets, models, run_all, limit, output_path, threshold, 
             mrr = model.mrr()
             click.echo(f"    MRR: {mrr:.4f}")
             confusion_stats = None
-            if confusion:
+            if pr_curves_dir:
+                # one walk produces both the per-threshold sweep and the
+                # confusion matrix at the requested threshold. cheaper
+                # than running them separately.
+                sweep_df = model.threshold_sweep()
+                sweep_results.append((type(model).__name__, sweep_df))
+                if confusion:
+                    closest = (sweep_df['threshold'] - threshold).abs().idxmin()
+                    confusion_stats = sweep_df.loc[closest].to_dict()
+            elif confusion:
                 confusion_stats = model.confusion_matrix(threshold=threshold)
+            if confusion_stats:
                 click.echo(
                     f"    confusion@{threshold}: "
-                    f"tp={confusion_stats['tp']} fp={confusion_stats['fp']} "
-                    f"tn={confusion_stats['tn']} fn={confusion_stats['fn']} "
+                    f"tp={int(confusion_stats['tp'])} fp={int(confusion_stats['fp'])} "
+                    f"tn={int(confusion_stats['tn'])} fn={int(confusion_stats['fn'])} "
                     f"P={confusion_stats['precision']:.3f} "
                     f"R={confusion_stats['recall']:.3f} "
                     f"F1={confusion_stats['f1']:.3f}"
@@ -183,6 +199,12 @@ def model_comparisons(datasets, models, run_all, limit, output_path, threshold, 
                 "mrr_score": mrr,
                 "confusion": confusion_stats,
             })
+
+        if pr_curves_dir and sweep_results:
+            from matchify.plotting import save_pr_curve
+            png_path = os.path.join(pr_curves_dir, f"pr_{dataset_key}.png")
+            save_pr_curve(sweep_results, png_path, title=cfg['label'])
+            click.echo(f"    PR curve: {png_path}")
 
         dataset_results.append({
             "dataset_name": cfg["label"],

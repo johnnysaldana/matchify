@@ -161,35 +161,31 @@ class ERBaseModel(abc.ABC):
         mrr = sum(rr_list) / len(rr_list) if rr_list else 0
         return mrr
 
-    def confusion_matrix(self, threshold: float = 0.5):
+    def _score_all_pairs(self):
         """
-        TP/FP/TN/FN over every candidate pair the model produces.
-        Predicted match is score >= threshold, actual match is shared
-        group_id. Self-pairs are excluded.
+        Walk the dataset once and collect (score, is_match) for every
+        candidate pair the model produces, excluding self-pairs.
 
-        Returns dict with tp, fp, tn, fn, precision, recall, f1.
+        Used by both confusion_matrix and threshold_sweep so we only pay
+        the per-row predict cost once.
         """
         if 'group_id' not in self.df.columns:
-            raise Exception('confusion_matrix requires group_id column')
-
-        tp = fp = tn = fn = 0
-
-        total_rows = len(self.df)
-        progress_bar = tqdm(total=total_rows, ncols=100, desc="Confusion matrix", unit=" rows")
+            raise Exception('scoring requires group_id column')
 
         group_lookup = self.df.set_index('id')['group_id'].to_dict()
+        scores = []
+        labels = []
 
+        progress_bar = tqdm(total=len(self.df), ncols=100, desc="Scoring pairs", unit=" rows")
         for _, row in self.df.iterrows():
             row_id = row.id
             row_group = group_lookup.get(row_id)
             row_features = row[[x for x in row.index if x not in self.ignored_columns]]
-
             preds = self.predict(row_features, only_matches=False, return_full_record=True)
             for _, pred in preds.iterrows():
                 pred_id = pred.get('id')
                 if pred_id == row_id:
                     continue
-                score = float(pred.get('score') or 0.0)
                 pred_group = group_lookup.get(pred_id)
                 actual_match = (
                     row_group is not None
@@ -198,24 +194,58 @@ class ERBaseModel(abc.ABC):
                     and not pd.isna(pred_group)
                     and row_group == pred_group
                 )
-                predicted_match = score >= threshold
-                if predicted_match and actual_match:
-                    tp += 1
-                elif predicted_match and not actual_match:
-                    fp += 1
-                elif not predicted_match and actual_match:
-                    fn += 1
-                else:
-                    tn += 1
+                scores.append(float(pred.get('score') or 0.0))
+                labels.append(bool(actual_match))
             progress_bar.update(1)
-
         progress_bar.close()
+        return scores, labels
 
+    @staticmethod
+    def _stats_at_threshold(scores, labels, threshold):
+        tp = fp = tn = fn = 0
+        for s, y in zip(scores, labels):
+            predicted_match = s >= threshold
+            if predicted_match and y:
+                tp += 1
+            elif predicted_match and not y:
+                fp += 1
+            elif not predicted_match and y:
+                fn += 1
+            else:
+                tn += 1
         precision = tp / (tp + fp) if (tp + fp) else 0.0
         recall = tp / (tp + fn) if (tp + fn) else 0.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
         return {
+            'threshold': threshold,
             'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn,
             'precision': precision, 'recall': recall, 'f1': f1,
-            'threshold': threshold,
         }
+
+    def confusion_matrix(self, threshold: float = 0.5):
+        """
+        TP/FP/TN/FN over every candidate pair the model produces.
+        Predicted match is score >= threshold, actual match is shared
+        group_id. Self-pairs are excluded.
+
+        Returns dict with tp, fp, tn, fn, precision, recall, f1.
+        """
+        scores, labels = self._score_all_pairs()
+        return self._stats_at_threshold(scores, labels, threshold)
+
+    def threshold_sweep(self, thresholds=None) -> pd.DataFrame:
+        """
+        Score every candidate pair once, then evaluate at many thresholds.
+        Cheaper than calling confusion_matrix in a loop because predict
+        runs once per row, not once per threshold.
+
+        Returns a DataFrame with one row per threshold and columns
+        threshold, tp, fp, tn, fn, precision, recall, f1.
+        """
+        if thresholds is None:
+            # 51 points from 0 to 1 inclusive. dense enough for a smooth
+            # PR curve, sparse enough to plot quickly.
+            thresholds = [i / 50.0 for i in range(51)]
+        scores, labels = self._score_all_pairs()
+        rows = [self._stats_at_threshold(scores, labels, t) for t in thresholds]
+        return pd.DataFrame(rows)

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='matchify',
-    version='1.1.0',
+    version='1.2.0',
     packages=find_packages(),
     install_requires=[
         'pandas',
@@ -22,6 +22,7 @@ setup(
         'python-dateutil',
         'jinja2',
         'click',
+        'matplotlib',
         'faker',
         'boto3',
         'pyarrow',
