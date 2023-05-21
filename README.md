@@ -13,7 +13,7 @@ Zenodo for citation; see `CITATION.cff` for the canonical citation.
 
 Entity resolution is the task of identifying records, across one or more
 data sources, that refer to the same real-world entity. `matchify`
-exposes a common abstract `ERBaseModel` interface and ships three
+exposes a common abstract `ERBaseModel` interface and ships five
 concrete models spanning the methodological progression in the field:
 
 - `ExactMatchModel`: hash-based exact-match baseline. No training, no
@@ -40,8 +40,9 @@ concrete models spanning the methodological progression in the field:
   architecture from the deep ER literature (Mudgal et al., DeepER). Same
   `[deep]` extra, same cosine-ranking path at inference.
 
-Every model implements `mrr()` and `confusion_matrix(threshold)` on the base
-class so they can be compared apples-to-apples on any labelled benchmark.
+Every model implements `mrr()`, `confusion_matrix(threshold)`, and
+`threshold_sweep()` on the base class, so they can be compared
+apples-to-apples on any labelled benchmark.
 
 A small data-splitting utility (`DataSplitter`), a set of data loaders (CSV,
 JSON, Parquet, S3, SQL), a synthetic person-record generator, and a CLI for
@@ -57,11 +58,21 @@ confusion matrix:
 
 | Model | MRR | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|
-| ExactMatchModel | 0.280 | 1.000 | 0.215 | 0.354 |
+| ExactMatchModel | 0.280 | **1.000** | 0.215 | 0.354 |
 | FlexMatchModel | 0.489 | 0.101 | 0.842 | 0.180 |
-| MLPMatchModel | 0.576 | 0.229 | **1.000** | **0.372** |
+| MLPMatchModel | 0.610 | 0.250 | **1.000** | **0.400** |
 | BertMatchModel | 0.604 | 0.124 | 0.952 | 0.220 |
-| SiameseMatchModel | **0.648** | 0.089 | **1.000** | 0.163 |
+| SiameseMatchModel | **0.649** | 0.095 | **1.000** | 0.174 |
+
+### Abt-Buy (500 records)
+
+| Model | MRR | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|
+| ExactMatchModel | 0.000 | 0.000 | 0.000 | 0.000 |
+| FlexMatchModel | 0.182 | 0.024 | 0.286 | 0.044 |
+| MLPMatchModel | **0.758** | **0.182** | **1.000** | **0.307** |
+| BertMatchModel | 0.571 | 0.068 | **1.000** | 0.128 |
+| SiameseMatchModel | 0.652 | 0.040 | **1.000** | 0.077 |
 
 ### DBLP-ACM (500 records)
 
@@ -71,7 +82,7 @@ confusion matrix:
 | FlexMatchModel | 0.924 | 0.313 | 1.000 | 0.477 |
 | MLPMatchModel | **0.924** | **1.000** | **1.000** | **1.000** |
 | BertMatchModel | 0.920 | 0.613 | 0.996 | 0.759 |
-| SiameseMatchModel | **0.924** | 0.456 | **1.000** | 0.626 |
+| SiameseMatchModel | **0.924** | 0.465 | **1.000** | 0.635 |
 
 ### Synthetic People (500 records)
 
@@ -84,9 +95,9 @@ normalizers (`name`, `phone`, `address`, `date`).
 |---|---:|---:|---:|---:|
 | ExactMatchModel | 0.392 | **1.000** | 0.465 | 0.635 |
 | FlexMatchModel | 0.623 | 0.187 | **1.000** | 0.315 |
-| MLPMatchModel | 0.626 | 0.759 | **1.000** | **0.863** |
+| MLPMatchModel | 0.625 | 0.757 | **1.000** | **0.861** |
 | BertMatchModel | **0.629** | 0.133 | **1.000** | 0.235 |
-| SiameseMatchModel | 0.626 | 0.406 | **1.000** | 0.578 |
+| SiameseMatchModel | 0.626 | 0.421 | **1.000** | 0.592 |
 
 The four trained models cluster tightly on MRR (~0.62-0.63), so on
 this dataset the deciding factor is precision at threshold 0.5, and
@@ -95,37 +106,78 @@ than on the other benchmarks because the synthetic generator does
 produce perfect-duplicate records (~20% of the population). Its recall
 is capped by the close-match population it can never catch.
 
-Three stories in the data:
+Four stories in the data:
 
 - **Loose-text data (Amazon-Google):** the methodological progression
   pays off. Each new tier (distance features, learned weighting (MLP),
   pretrained encoder (BERT), fine-tuned encoder (Siamese)) raises MRR.
-  SiameseMatchModel wins on ranking by ~7 MRR points over BERT and ~13
+  SiameseMatchModel wins on ranking by ~4 MRR points over BERT and ~4
   over MLP, because product descriptions reward an encoder that has
   *seen this dataset's positive/negative pairs*.
+- **Cross-catalog text (Abt-Buy):** different vendors describe the
+  same product in radically different language, so string-similarity
+  alone (Flex) is a non-starter (MRR 0.18). MLP wins decisively
+  (MRR 0.76) because its supervised feature head learns *which*
+  similarity dimensions actually correlate with a match on this
+  dataset. Pretrained BERT under-performs MLP here without
+  fine-tuning. Siamese fine-tuning helps (0.65 vs 0.57 BERT) but
+  doesn't catch up to the engineered-feature classifier on this
+  small-vocabulary corpus.
 - **Structured data (DBLP-ACM):** the title field is nearly deterministic
-  so all four trained models converge on MRR 0.92–0.92. F1 separates
+  so all four trained models converge on MRR 0.92. F1 separates
   them: MLPMatchModel's calibrated 0.5 threshold yields perfect
   classification (P=R=1.0); the cosine-similarity models rank the right
   candidates first but score too many adjacent records above 0.5 at
   inference time, hurting precision.
 - **Controlled synthetic data:** the four trained models cluster on
   MRR (~0.62–0.63), so the engineered-feature MLP wins F1 by a wide
-  margin (0.86 vs 0.58 next-best). Random one-character perturbations
+  margin (0.86 vs 0.59 next-best). Random one-character perturbations
   don't give the encoder anything systematic to learn, so Siamese
   fine-tuning underperforms its pretrained baseline on F1.
 
 Caveat: F1 is reported at a fixed `threshold=0.5` for all models. The
 cosine-similarity-based models (BERT, Siamese) would benefit from
 per-dataset threshold tuning that this comparison doesn't perform.
+The PR curves below show how each model trades off precision vs recall
+across the full 0..1 threshold range, which is what makes the F1
+comparison fair to inspect rather than to act on.
+
+### Precision/recall curves
+
+Generated by `make bench` (or `matchify model-comparisons --all
+--limit 500 --pr-curves docs/pr/`). Each curve is one model swept
+across thresholds 0..1 in 0.02 steps.
+
+| | |
+|:-:|:-:|
+| ![Amazon-Google PR curve](docs/pr/pr_amazon-google.png) | ![Abt-Buy PR curve](docs/pr/pr_abt-buy.png) |
+| ![DBLP-ACM PR curve](docs/pr/pr_dblp-acm.png) | ![Synthetic People PR curve](docs/pr/pr_synthetic-people.png) |
+
+A few takeaways visible in the curves that the single-threshold
+F1 column hides:
+
+- **BertMatchModel owns the precision/recall trade on DBLP-ACM**:
+  near-perfect precision out to recall ~0.95 before it collapses.
+  The single-threshold F1 of 0.76 understates how good the ranking
+  actually is.
+- **The cosine-similarity models (BERT, Siamese) tend to win the
+  high-recall band on the loose-text datasets** (Amazon-Google,
+  Abt-Buy). Sliding past threshold 0.5 trades recall for a clean
+  precision boost.
+- **MLPMatchModel's curves are nearly linear** on every dataset
+  except Amazon-Google. The classifier head produces bimodal
+  probabilities (close to 0 or close to 1), so the threshold sweep
+  mostly toggles "everything in" vs "everything out." That's why MLP
+  hits P=R=F1=1.0 on DBLP-ACM at threshold 0.5 but doesn't dominate
+  the curve elsewhere.
+- **ExactMatchModel collapses to a single point or to (0, 0)** because
+  it produces a binary score: either records hash to the same bucket
+  or they don't, so the threshold sweep degenerates.
 
 Reproduce with:
 
 ```bash
-matchify model-comparisons \
-  --dataset amazon-google --dataset dblp-acm --dataset synthetic-people \
-  --models exact --models flex --models mlp --models bert --models siamese \
-  --limit 500
+matchify model-comparisons --all --limit 500 --pr-curves docs/pr/
 ```
 
 ## Installation
@@ -145,14 +197,15 @@ to 3.12 if you hit a `gensim` install error.
 ## Easiest path: try everything
 
 ```bash
-make bench          # all 5 models on all 3 datasets, 500 rows each, ~3 min
+make bench          # all 5 models on all 4 datasets, 500 rows each, ~5 min
 make bench-quick    # same on 100 rows, ~1 min
 ```
 
 Both write `output.html` with side-by-side predictions, MRR, and a
-confusion matrix per (model, dataset) pair. Underneath, `make bench` is
-just `matchify model-comparisons --all --limit 500`. Use the CLI
-directly if you want to subset:
+confusion matrix per (model, dataset) pair. `make bench` also dumps
+per-dataset precision/recall PNGs to `docs/pr/`. Underneath it's just
+`matchify model-comparisons --all --limit 500 --pr-curves docs/pr/`.
+Use the CLI directly if you want to subset:
 
 ```bash
 matchify model-comparisons \
@@ -209,15 +262,18 @@ The output is written to `output.html`.
 
 ## Datasets
 
-Two benchmarks from the [Leipzig DB-Group benchmark
+Three benchmarks from the [Leipzig DB-Group benchmark
 collection](https://dbs.uni-leipzig.de/research/projects/object_matching/benchmark_datasets_for_entity_resolution)
-ship with the repo. Each follows the same `Combined*.csv` layout: one row
-per record, with an `id`, the original source-table identifier under
-`original_id`, and a `group_id` for supervision (records with the same
-`group_id` are duplicates of one another).
+ship with the repo, plus a synthetic person-record benchmark. Each follows
+the same `Combined*.csv` layout: one row per record, with an `id`, the
+original source-table identifier under `original_id`, and a `group_id`
+for supervision (records with the same `group_id` are duplicates of one
+another).
 
 - `datasets/Amazon-GoogleProducts/`: e-commerce, ~3.7K records, fields:
   name, description, manufacturer, price.
+- `datasets/Abt-Buy/`: e-commerce, ~2.2K records, same fields as
+  Amazon-Google. Quickest of the real-world benchmarks.
 - `datasets/DBLP-ACM/`: bibliographic, ~5K records, fields: title,
   authors, venue, year.
 - `datasets/SyntheticPeople/`: synthetic person records (500),
@@ -248,7 +304,10 @@ matchify/
 │   └── cli.py
 ├── datasets/
 │   ├── Amazon-GoogleProducts/
-│   └── DBLP-ACM/
+│   ├── Abt-Buy/
+│   ├── DBLP-ACM/
+│   └── SyntheticPeople/
+├── docs/pr/                    # PR-curve PNGs per dataset
 ├── examples/                    # quickstart notebooks
 ├── tests/                       # pytest smoke tests
 ├── run.ipynb                    # original research notebook
@@ -265,18 +324,14 @@ laptop. The bundled CSVs are the exact files used to compute them. Pin
 your Python to 3.10–3.12, install the project, then:
 
 ```bash
-matchify model-comparisons \
-  --dataset amazon-google --dataset dblp-acm \
-  --models exact --models flex --models mlp --models bert --models siamese \
-  --limit 500 --threshold 0.5 \
-  --output output.html
+matchify model-comparisons --all --limit 500 --pr-curves docs/pr/
 ```
 
-Total wall-clock on an M-series MacBook: ~3 min for the four trained
-models per dataset (Siamese fine-tuning dominates at ~80s on
-Amazon-Google, ~25s on DBLP-ACM). Drop `--models bert --models siamese`
-if you don't have the `[deep]` extra; the rules-based + MLP slice
-finishes in well under a minute.
+Total wall-clock on an M-series MacBook: ~5 min for all five models
+across all four datasets, with the precision/recall sweep included.
+Siamese fine-tuning dominates at ~80s on Amazon-Google, ~25s elsewhere.
+Drop the deep models if you don't have the `[deep]` extra; the
+rules-based + MLP slice finishes in well under a minute.
 
 ## Citation
 

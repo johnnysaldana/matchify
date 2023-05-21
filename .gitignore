@@ -27,6 +27,7 @@ env/
 
 # Generated artifacts
 output.html
+docs/*.html
 
 # Claude Code workspace state
 .claude/

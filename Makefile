@@ -4,7 +4,7 @@ help:
 	@echo "matchify make targets:"
 	@echo "  install        Editable install, base deps only (no torch)"
 	@echo "  install-deep   Editable install + the [deep] extra (BERT and Siamese)"
-	@echo "  bench          Run every model on every bundled dataset (500 rows each)"
+	@echo "  bench          Run every model on every bundled dataset (500 rows each), write PR curves"
 	@echo "  bench-quick    Same as 'bench' but on 100 rows. Sanity check, ~1 min"
 	@echo "  test           pytest tests/"
 	@echo "  clean          Remove output.html and build artifacts"
@@ -16,7 +16,7 @@ install-deep:
 	pip install -e ".[deep]"
 
 bench:
-	matchify model-comparisons --all --limit 500
+	matchify model-comparisons --all --limit 500 --pr-curves docs/pr/
 
 bench-quick:
 	matchify model-comparisons --all --limit 100
