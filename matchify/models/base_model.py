@@ -1,8 +1,9 @@
 import abc
+
 import nameparser
+import pandas as pd
 import phonenumbers
 import usaddress
-import pandas as pd
 from dateutil import parser as date_parser
 from tqdm import tqdm
 

@@ -1,13 +1,6 @@
 """
 Generate synthetic person records with controlled duplication for
 entity-resolution evaluation.
-
-Each row has id, group_id, and the five fields. Records sharing a
-group_id are considered duplicates. Same id/group_id contract as
-CombinedProducts.csv and CombinedAcademic.csv, so the output CSV
-plugs straight into MRR and confusion_matrix.
-
-Reproducible. Pass --seed (default 0) to fix the RNG.
 """
 
 import argparse
@@ -15,7 +8,6 @@ import csv
 import random
 
 from faker import Faker
-
 
 FIELDS = ('first_name', 'last_name', 'birthdate', 'address', 'phone_number')
 

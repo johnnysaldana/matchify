@@ -6,7 +6,6 @@ from click.testing import CliRunner
 
 from matchify.cli import cli
 
-
 _HAS_DEEP = importlib.util.find_spec("sentence_transformers") is not None
 
 

@@ -1,25 +1,22 @@
 import pandas as pd
+
 from matchify.models.base_model import ERBaseModel
 
 
 class ExactMatchModel(ERBaseModel):
     """
     Deterministic exact-match model. Hashes records over non-ignored
-    fields and treats rows with the same hash as matches.
-
-    No training is required; prediction returns binary scores where
-    exact hash equality is 1 and everything else is 0.
+    fields and treats rows with the same hash as matches. No training.
     """
     def preprocess(self) -> pd.DataFrame:
         """
-        Since the exact matching doesn't require any specific preprocessing, we just return
-        the original data.
+        Since the exact matching doesn't require any specific preprocessing, we just return the data
         """
         pass
 
     def train(self, *args, **kwargs):
         """
-        Exact matching doesn't require a training phase, so this method remains empty.
+        Exact matching doesn't require a training phase, so this method is empty.
         """
         pass
 

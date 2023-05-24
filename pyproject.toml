@@ -1,0 +1,29 @@
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",  # formatter handles line length
+    "B008",  # Click defaults
+    "B904",  # noisy
+    "B905",  # noisy
+    "B007",  # noisy
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]  # module-level imports not at top of file
+"examples/*" = ["E402"]
+"matchify/utils/synthetic_data_generation/person_faker.py" = ["UP"]  # keep tuple literal style
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

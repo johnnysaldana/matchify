@@ -1,32 +1,17 @@
+
+import jellyfish
 import pandas as pd
 import textdistance
-import jellyfish
+from gensim.parsing.preprocessing import preprocess_string, strip_punctuation
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from gensim.parsing.preprocessing import preprocess_string, strip_punctuation
+
 from matchify.models.base_model import ERBaseModel
-from typing import Dict
 
 
 class FlexMatchModel(ERBaseModel):
-    """
-    Rule-based similarity model. Applies per-field normalization and
-    configurable string comparison methods, then sums field scores and
-    normalizes to produce a final match score.
-
-    Supports multiple blocking strategies to reduce the candidate set
-    before pairwise scoring.
-    """
-    def __init__(
-        self,
-        df: pd.DataFrame,
-        field_config: dict[str, dict[str, str]],
-        blocking_config: dict[str, dict[str, str]],
-        ignored_columns,
-        test_size: float = 0.0,
-        random_state: int = 0,
-    ):
-        super().__init__(df, ignored_columns, test_size=test_size, random_state=random_state)
+    def __init__(self, df: pd.DataFrame, field_config: dict[str, dict[str, str]], blocking_config: dict[str, dict[str, str]], ignored_columns):
+        super().__init__(df, ignored_columns)
         self.field_config = field_config
         self.blocking_config = blocking_config
         self.blocking_key = list(blocking_config.keys())[0]
@@ -56,7 +41,7 @@ class FlexMatchModel(ERBaseModel):
                 prefix_len = config['threshold']
                 prefix_field = f"{field}_prefix_{prefix_len}"
                 self.blocking_config[field]['field'] = prefix_field
-                # bind prefix_len explicitly otherwise the lambda captures the loop variable
+                # bind prefix_len explicitly; otherwise the lambda captures the loop variable
                 preprocessed_data[prefix_field] = preprocessed_data[field].apply(
                     lambda x, p=prefix_len: x[:p]
                 )

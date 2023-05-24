@@ -8,7 +8,6 @@ import warnings
 
 import pytest
 
-
 warnings.filterwarnings("ignore")
 
 

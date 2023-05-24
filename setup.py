@@ -38,6 +38,10 @@ setup(
             'datasets',
             'accelerate>=0.20',
         ],
+        'dev': [
+            'pytest>=7.0',
+            'ruff>=0.0.260',
+        ],
     },
     entry_points={
         'console_scripts': [

@@ -1,14 +1,3 @@
-"""
-BERT entity-resolution model using sentence-transformers.
-
-Concatenate each record's configured fields into one text, encode the
-corpus once (cached), rank candidates by cosine similarity. Blocking
-step optional.
-
-Needs the [deep] extra: pip install matchify[deep].
-"""
-
-import numpy as np
 import pandas as pd
 
 from matchify.models.base_model import ERBaseModel

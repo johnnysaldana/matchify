@@ -1,13 +1,4 @@
-"""
-Registry of bundled benchmark datasets.
-
-Each entry pairs a Combined*.csv (one row per record, with id/group_id
-columns) with default field/blocking configs for that dataset. The CLI
-uses these to drive multi-dataset comparison runs.
-"""
-
 import os
-
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 

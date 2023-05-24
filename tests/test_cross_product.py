@@ -15,7 +15,6 @@ import pytest
 
 from matchify.datasets import DATASETS
 
-
 warnings.filterwarnings("ignore")
 
 

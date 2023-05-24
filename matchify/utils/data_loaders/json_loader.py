@@ -1,4 +1,5 @@
 import json
+
 import pandas as pd
 
 
@@ -25,7 +26,7 @@ class JsonLoader:
         """
         try:
             if self.chunksize is not None:
-                with open(self.file_path, 'r') as f:
+                with open(self.file_path) as f:
                     data_chunks = []
                     for i, line in enumerate(f):
                         if self.lines:

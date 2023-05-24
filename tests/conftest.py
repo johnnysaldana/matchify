@@ -1,9 +1,8 @@
-import os
 
 import pandas as pd
 import pytest
 
-from matchify.datasets import DATASETS, REPO_ROOT
+from matchify.datasets import DATASETS
 
 
 @pytest.fixture(scope="session")

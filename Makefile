@@ -1,4 +1,4 @@
-.PHONY: install install-deep bench bench-quick test clean help
+.PHONY: install install-deep bench bench-quick test lint format clean help
 
 help:
 	@echo "matchify make targets:"
@@ -7,6 +7,8 @@ help:
 	@echo "  bench          Run every model on every bundled dataset (500 rows each), write PR curves"
 	@echo "  bench-quick    Same as 'bench' but on 100 rows. Sanity check, ~1 min"
 	@echo "  test           pytest tests/"
+	@echo "  lint           ruff check matchify/ tests/"
+	@echo "  format         ruff format matchify/ tests/"
 	@echo "  clean          Remove output.html and build artifacts"
 
 install:
@@ -23,6 +25,12 @@ bench-quick:
 
 test:
 	pytest tests/
+
+lint:
+	ruff check matchify/ tests/
+
+format:
+	ruff format matchify/ tests/
 
 clean:
 	rm -f output.html

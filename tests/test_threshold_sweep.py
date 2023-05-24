@@ -1,11 +1,4 @@
-"""
-Tests for threshold_sweep and the PR-curve plotting helper. Smoke level:
-the sweep returns sane shapes, monotonic-ish stats, and the plot writes
-a non-empty PNG.
-"""
-import os
-
-import pytest
+"""smoke tests for threshold_sweep + the PR curve helper."""
 
 
 def test_threshold_sweep_shape(amazon_google_sample, amazon_google_field_config,

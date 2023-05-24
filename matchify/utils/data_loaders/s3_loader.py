@@ -1,5 +1,5 @@
-import pandas as pd
 import boto3
+import pandas as pd
 
 
 class S3Loader:

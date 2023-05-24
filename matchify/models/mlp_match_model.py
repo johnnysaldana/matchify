@@ -1,14 +1,15 @@
 import random
+
+import jellyfish
 import numpy as np
 import pandas as pd
 import textdistance
-import jellyfish
+from gensim.parsing.preprocessing import preprocess_string, strip_punctuation
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neural_network import MLPClassifier
-from gensim.parsing.preprocessing import preprocess_string, strip_punctuation
+
 from matchify.models.base_model import ERBaseModel
-from typing import Dict
 
 
 class MLPMatchModel(ERBaseModel):
@@ -24,8 +25,8 @@ class MLPMatchModel(ERBaseModel):
     def __init__(
         self,
         df: pd.DataFrame,
-        field_config: Dict[str, Dict[str, str]],
-        blocking_config: Dict[str, Dict[str, str]],
+        field_config: dict[str, dict[str, str]],
+        blocking_config: dict[str, dict[str, str]],
         ignored_columns,
         n_pairs: int = 4000,
         hidden_layer_sizes=(64, 32),
@@ -68,8 +69,9 @@ class MLPMatchModel(ERBaseModel):
                 prefix_len = config['threshold']
                 prefix_field = f"{field}_prefix_{prefix_len}"
                 self.blocking_config[field]['field'] = prefix_field
+                # bind prefix_len explicitly; otherwise the lambda captures the loop variable
                 preprocessed_data[prefix_field] = preprocessed_data[field].apply(
-                    lambda x: str(x)[:prefix_len]
+                    lambda x, p=prefix_len: str(x)[:p]
                 )
         return preprocessed_data
 
