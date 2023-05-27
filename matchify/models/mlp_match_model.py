@@ -32,15 +32,15 @@ class MLPMatchModel(ERBaseModel):
         hidden_layer_sizes=(64, 32),
         max_iter: int = 200,
         random_state: int = 42,
+        test_size: float = 0.0,
     ):
-        super().__init__(df, ignored_columns)
+        super().__init__(df, ignored_columns, test_size=test_size, random_state=random_state)
         self.field_config = field_config
         self.blocking_config = blocking_config
         self.blocking_key = list(blocking_config.keys())[0]
         self.n_pairs = n_pairs
         self.hidden_layer_sizes = hidden_layer_sizes
         self.max_iter = max_iter
-        self.random_state = random_state
 
         self.preprocessed_data = self.preprocess(df)
         self.vectorizers = {}
@@ -69,7 +69,7 @@ class MLPMatchModel(ERBaseModel):
                 prefix_len = config['threshold']
                 prefix_field = f"{field}_prefix_{prefix_len}"
                 self.blocking_config[field]['field'] = prefix_field
-                # bind prefix_len explicitly; otherwise the lambda captures the loop variable
+                # bind prefix_len explicitly. otherwise the lambda captures the loop variable
                 preprocessed_data[prefix_field] = preprocessed_data[field].apply(
                     lambda x, p=prefix_len: str(x)[:p]
                 )
@@ -145,16 +145,19 @@ class MLPMatchModel(ERBaseModel):
         raise ValueError(f"Unsupported comparison method: {method}")
 
     def _sample_training_pairs(self):
-        """Pull positive and negative pairs from group_id supervision."""
+        """Pull positive and negative pairs from train-split group_id supervision."""
         if 'group_id' not in self.df.columns:
             raise Exception('MLPMatchModel requires a group_id column for training')
 
         rng = random.Random(self.random_state)
-        df = self.df
+        # restrict pair sampling to the train partition. when test_size=0
+        # this is the full df (back-compat). use .groups (label-based) so
+        # downstream .loc[] lookups hit the right rows even when the
+        # train partition is non-contiguous.
+        train_df = self.df.loc[self._train_idx]
 
-        # positives: two distinct rows in the same group
-        groups = df.dropna(subset=['group_id']).groupby('group_id').indices
-        candidate_groups = [idxs for idxs in groups.values() if len(idxs) >= 2]
+        groups = train_df.dropna(subset=['group_id']).groupby('group_id').groups
+        candidate_groups = [list(idxs) for idxs in groups.values() if len(idxs) >= 2]
 
         n_each = self.n_pairs // 2
         positives = []
@@ -164,17 +167,17 @@ class MLPMatchModel(ERBaseModel):
             if not candidate_groups:
                 break
             grp = rng.choice(candidate_groups)
-            i, j = rng.sample(list(grp), 2)
+            i, j = rng.sample(grp, 2)
             positives.append((i, j))
 
-        # negatives: two rows from different groups
-        all_indices = df.index.to_list()
-        group_lookup = df['group_id'].to_dict()
+        # negatives: two train rows from different groups
+        train_indices = train_df.index.to_list()
+        group_lookup = train_df['group_id'].to_dict()
         negatives = []
         attempts = 0
         while len(negatives) < n_each and attempts < n_each * 20:
             attempts += 1
-            i, j = rng.sample(all_indices, 2)
+            i, j = rng.sample(train_indices, 2)
             gi, gj = group_lookup.get(i), group_lookup.get(j)
             if pd.isna(gi) or pd.isna(gj) or gi != gj:
                 negatives.append((i, j))

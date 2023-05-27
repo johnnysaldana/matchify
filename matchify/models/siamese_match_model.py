@@ -1,17 +1,3 @@
-"""
-Siamese entity-resolution model.
-
-Fine-tunes a sentence-transformer with contrastive loss on positive
-(same-group_id) and negative (different-group_id) pairs from the
-training data, then ranks candidates by cosine similarity in the
-fine-tuned encoder's embedding space.
-
-Canonical twin-encoder Siamese (Mudgal et al., DeepER) on top of
-sentence-transformers' SentenceTransformer + ContrastiveLoss.
-
-Needs the [deep] extra: pip install matchify[deep].
-"""
-
 import os
 import random
 import tempfile
@@ -45,8 +31,9 @@ class SiameseMatchModel(ERBaseModel):
         margin: float = 0.5,
         random_state: int = 42,
         save_path: str = None,
+        test_size: float = 0.0,
     ):
-        super().__init__(df, ignored_columns)
+        super().__init__(df, ignored_columns, test_size=test_size, random_state=random_state)
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
@@ -73,7 +60,6 @@ class SiameseMatchModel(ERBaseModel):
         self.embeddings = None
 
     def preprocess(self, df) -> pd.DataFrame:
-        # Add derived fields needed for blocking.
         df = df.copy()
         for field, cfg in self.blocking_config.items():
             if cfg.get('method') == 'prefix':
@@ -84,7 +70,6 @@ class SiameseMatchModel(ERBaseModel):
         return df
 
     def _record_text(self, record) -> str:
-        # Build a single text representation from configured fields.
         parts = []
         for field in self.field_config:
             v = record.get(field)
@@ -94,18 +79,16 @@ class SiameseMatchModel(ERBaseModel):
         return " | ".join(parts)
 
     def _sample_pairs(self):
-        # Sample positive/negative supervision pairs from train rows.
         if 'group_id' not in self.df.columns:
             raise Exception('SiameseMatchModel requires group_id supervision')
         rng = random.Random(self.random_state)
-        # restrict pair sampling to the train partition. when test_size=0
-        # this is the full df
+        # train partition only. test_size=0 means the full df.
         train_df = self.df.loc[self._train_idx]
 
-        groups = df.dropna(subset=['group_id']).groupby('group_id').indices
+        groups = train_df.dropna(subset=['group_id']).groupby('group_id').groups
         candidate_groups = [list(idxs) for idxs in groups.values() if len(idxs) >= 2]
-        all_indices = df.index.to_list()
-        group_lookup = df['group_id'].to_dict()
+        train_indices = train_df.index.to_list()
+        group_lookup = train_df['group_id'].to_dict()
 
         n_each = self.n_pairs // 2
         positives, negatives = [], []
@@ -118,14 +101,13 @@ class SiameseMatchModel(ERBaseModel):
         attempts = 0
         while len(negatives) < n_each and attempts < n_each * 20:
             attempts += 1
-            i, j = rng.sample(all_indices, 2)
+            i, j = rng.sample(train_indices, 2)
             gi, gj = group_lookup.get(i), group_lookup.get(j)
             if pd.isna(gi) or pd.isna(gj) or gi != gj:
                 negatives.append((i, j))
         return positives, negatives
 
     def train(self):
-        # Fine-tune the encoder on sampled supervision pairs.
         from sentence_transformers import InputExample, losses
         from torch.utils.data import DataLoader
 
@@ -169,7 +151,6 @@ class SiameseMatchModel(ERBaseModel):
         )
 
     def _apply_blocking(self, record):
-        # Restrict candidate rows according to configured blocking strategy.
         if not self.blocking_config or self.blocking_key is None:
             return self.preprocessed_data.index
         cfg = self.blocking_config[self.blocking_key]
@@ -185,7 +166,6 @@ class SiameseMatchModel(ERBaseModel):
         raise ValueError(f"Unsupported blocking method: {method}")
 
     def predict(self, record: pd.Series, **kwargs) -> pd.DataFrame:
-        # Score blocked candidates with cosine similarity in embedding space.
         if self.embeddings is None:
             raise Exception('Call train() before predict()')
         only_matches = kwargs.get('only_matches')

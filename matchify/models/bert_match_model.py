@@ -22,8 +22,10 @@ class BertMatchModel(ERBaseModel):
         ignored_columns=None,
         model_name: str = DEFAULT_MODEL,
         batch_size: int = 64,
+        test_size: float = 0.0,
+        random_state: int = 0,
     ):
-        super().__init__(df, ignored_columns)
+        super().__init__(df, ignored_columns, test_size=test_size, random_state=random_state)
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:

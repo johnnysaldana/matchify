@@ -1,4 +1,5 @@
 import abc
+import random
 
 import nameparser
 import pandas as pd
@@ -9,20 +10,51 @@ from tqdm import tqdm
 
 
 class ERBaseModel(abc.ABC):
-    def __init__(self, df: pd.DataFrame, ignored_columns=None, **kwargs):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        ignored_columns=None,
+        test_size: float = 0.0,
+        random_state: int = 0,
+        **kwargs,
+    ):
         self.df = df
         self.ignored_columns = list(ignored_columns or [])
         self.ignored_columns += ['matchify_hash', 'predicted_group_id', 'score']
         self.is_clustered = False
         self.model = None
         self.kwargs = kwargs
+        self.test_size = test_size
+        self.random_state = random_state
+        self._train_idx, self._test_idx = self._compute_split()
+
+    def _compute_split(self):
+        # split groups (not rows) so supervised models never see test pairs.
+        # singletons and NaN group_id rows go to train. they have no positive
+        # match to find. test_size=0 returns an empty test partition.
+        if not self.test_size or self.test_size <= 0 or 'group_id' not in self.df.columns:
+            return self.df.index, pd.Index([])
+
+        group_sizes = self.df.dropna(subset=['group_id']).groupby('group_id').size()
+        multi_groups = group_sizes[group_sizes >= 2].index.tolist()
+        if not multi_groups:
+            return self.df.index, pd.Index([])
+
+        rng = random.Random(self.random_state)
+        rng.shuffle(multi_groups)
+        n_test = max(1, int(round(len(multi_groups) * self.test_size)))
+        test_groups = set(multi_groups[:n_test])
+
+        test_mask = self.df['group_id'].isin(test_groups)
+        return self.df.index[~test_mask], self.df.index[test_mask]
+
+    @property
+    def _eval_idx(self):
+        # test rows when a split is configured, else the full df.
+        return self._test_idx if len(self._test_idx) > 0 else self.df.index
 
     @abc.abstractmethod
     def preprocess(self, df: pd.DataFrame, ignored_columns=None) -> pd.DataFrame:
-        """
-        Preprocess the input data. This method should be implemented by each specific model
-        to handle data cleaning, normalization, and other preprocessing tasks.
-        """
         pass
 
     def _normalize_name(self, name: str) -> str:
@@ -54,26 +86,13 @@ class ERBaseModel(abc.ABC):
 
     @abc.abstractmethod
     def train(self, *args, **kwargs):
-        """
-        Train the model using the preprocessed data. This method should be implemented by
-        each specific model to handle training, including blocking, clustering, or
-        learning from labeled data.
-        """
         pass
 
     @abc.abstractmethod
     def predict(self, record: pd.Series, **kwargs) -> pd.DataFrame:
-        """
-        Predict the most likely match(es) for the input record. This method should be
-        implemented by each specific model to handle the actual entity resolution task.
-        """
         pass
 
     def fit_predict(self, record: pd.Series, *args, **kwargs) -> pd.DataFrame:
-        """
-        Train the model and predict matches for the input record. This method is a
-        convenience method that calls train() and predict() in succession.
-        """
         self.train(*args, **kwargs)
         return self.predict(record)
 
@@ -96,57 +115,37 @@ class ERBaseModel(abc.ABC):
         return matches
 
     def mrr(self):
-        """
-        Calculate the mean reciprocal rank (MRR) of the model's predictions.
-
-        The MRR is a measure of how well the model's predicted matches correspond to the actual
-        matches in the ground truth data. It is calculated as the average reciprocal rank of
-        the correct match for each lookup record.
-
-        Returns:
-            The MRR value as a float between 0 and 1, or 0 if there are no relevant results.
-        """
+        """Mean reciprocal rank over eval rows. Reciprocal rank of the first
+        true positive in each predicted candidate list, averaged."""
         if 'group_id' not in self.df.columns:
             raise Exception('MRR requires group_id column')
 
-        rr_list = []  # list of reciprocal ranks
+        rr_list = []
+        eval_idx = self._eval_idx
+        progress_bar = tqdm(total=len(eval_idx), ncols=100, desc="Calculating MRR", unit=" rows", unit_scale=True)
 
-        total_rows = len(self.df)
-        progress_bar = tqdm(total=total_rows, ncols=100, desc="Calculating MRR", unit=" rows", unit_scale=True)
-
-        for index, row in self.df.iterrows():
+        for index in eval_idx:
+            row = self.df.loc[index]
             row_id = row.id
             row = row[[x for x in row.index if x not in self.ignored_columns]]
 
-            # Get predicted matches for the lookup row
             predicted_matches = self.predict(row, only_matches=True)
-
-            # Skip to the next row if there are no predicted matches
             if predicted_matches.empty:
                 progress_bar.update(1)
                 continue
 
-            predicted_match_ids = list(predicted_matches['id'])
+            predicted_match_ids = [x for x in predicted_matches['id'] if x != row_id]
 
-            # Exclude the id of the lookup row
-            predicted_match_ids = [x for x in predicted_match_ids if x != row_id]
-
-            # Get actual matches from ground truth data for the lookup row
-            actual_matches = self._get_actual_matches(row_id)
-            actual_match_ids = list(actual_matches['id'])
-
-            # Skip to the next row if there are no actual matches
+            actual_match_ids = list(self._get_actual_matches(row_id)['id'])
             if not actual_match_ids:
                 progress_bar.update(1)
                 continue
 
-            # Handle cases where either actual or predicted matches are empty
             if not predicted_match_ids:
                 rr_list.append(0)
                 progress_bar.update(1)
                 continue
 
-            # Calculate the reciprocal rank of the correct match
             for idx, pred_id in enumerate(predicted_match_ids):
                 if pred_id in actual_match_ids:
                     rr_list.append(1 / (idx + 1))
@@ -157,19 +156,11 @@ class ERBaseModel(abc.ABC):
             progress_bar.update(1)
 
         progress_bar.close()
-
-        # Calculate the mean reciprocal rank
-        mrr = sum(rr_list) / len(rr_list) if rr_list else 0
-        return mrr
+        return sum(rr_list) / len(rr_list) if rr_list else 0
 
     def _score_all_pairs(self):
-        """
-        Walk the dataset once and collect (score, is_match) for every
-        candidate pair the model produces, excluding self-pairs.
-
-        Used by both confusion_matrix and threshold_sweep so we only pay
-        the per-row predict cost once.
-        """
+        # walk eval rows once, collect (score, is_match) per candidate pair.
+        # shared between confusion_matrix and threshold_sweep.
         if 'group_id' not in self.df.columns:
             raise Exception('scoring requires group_id column')
 
@@ -177,8 +168,10 @@ class ERBaseModel(abc.ABC):
         scores = []
         labels = []
 
-        progress_bar = tqdm(total=len(self.df), ncols=100, desc="Scoring pairs", unit=" rows")
-        for _, row in self.df.iterrows():
+        eval_idx = self._eval_idx
+        progress_bar = tqdm(total=len(eval_idx), ncols=100, desc="Scoring pairs", unit=" rows")
+        for index in eval_idx:
+            row = self.df.loc[index]
             row_id = row.id
             row_group = group_lookup.get(row_id)
             row_features = row[[x for x in row.index if x not in self.ignored_columns]]
@@ -224,28 +217,13 @@ class ERBaseModel(abc.ABC):
         }
 
     def confusion_matrix(self, threshold: float = 0.5):
-        """
-        TP/FP/TN/FN over every candidate pair the model produces.
-        Predicted match is score >= threshold, actual match is shared
-        group_id. Self-pairs are excluded.
-
-        Returns dict with tp, fp, tn, fn, precision, recall, f1.
-        """
+        """TP/FP/TN/FN at one threshold, over candidate pairs from predict."""
         scores, labels = self._score_all_pairs()
         return self._stats_at_threshold(scores, labels, threshold)
 
     def threshold_sweep(self, thresholds=None) -> pd.DataFrame:
-        """
-        Score every candidate pair once, then evaluate at many thresholds.
-        Cheaper than calling confusion_matrix in a loop because predict
-        runs once per row, not once per threshold.
-
-        Returns a DataFrame with one row per threshold and columns
-        threshold, tp, fp, tn, fn, precision, recall, f1.
-        """
+        """confusion_matrix at many thresholds, predict only runs once per row."""
         if thresholds is None:
-            # 51 points from 0 to 1 inclusive. dense enough for a smooth
-            # PR curve, sparse enough to plot quickly.
             thresholds = [i / 50.0 for i in range(51)]
         scores, labels = self._score_all_pairs()
         rows = [self._stats_at_threshold(scores, labels, t) for t in thresholds]

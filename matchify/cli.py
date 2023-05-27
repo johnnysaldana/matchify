@@ -21,45 +21,33 @@ def generate_html_table(dataset_results):
     return template.render(dataset_results=dataset_results)
 
 
-def _build_model(model_name, df, ignored_columns, field_config, blocking_config):
+def _build_model(
+    model_name, df, ignored_columns, field_config, blocking_config,
+    test_size=0.0, random_state=0,
+):
     # each model gets its own copy. ExactMatchModel mutates self.df,
     # FlexMatchModel rewrites columns.
     df = df.copy()
+    common = {
+        "ignored_columns": ignored_columns,
+        "test_size": test_size,
+        "random_state": random_state,
+    }
     if model_name == "exact":
         from matchify.models.exact_match_model import ExactMatchModel
-        return ExactMatchModel(df, ignored_columns=ignored_columns)
+        return ExactMatchModel(df, **common)
     if model_name == "flex":
         from matchify.models.flex_match_model import FlexMatchModel
-        return FlexMatchModel(
-            df,
-            field_config=field_config,
-            blocking_config=blocking_config,
-            ignored_columns=ignored_columns,
-        )
+        return FlexMatchModel(df, field_config=field_config, blocking_config=blocking_config, **common)
     if model_name == "mlp":
         from matchify.models.mlp_match_model import MLPMatchModel
-        return MLPMatchModel(
-            df,
-            field_config=field_config,
-            blocking_config=blocking_config,
-            ignored_columns=ignored_columns,
-        )
+        return MLPMatchModel(df, field_config=field_config, blocking_config=blocking_config, **common)
     if model_name == "bert":
         from matchify.models.bert_match_model import BertMatchModel
-        return BertMatchModel(
-            df,
-            field_config=field_config,
-            blocking_config=blocking_config,
-            ignored_columns=ignored_columns,
-        )
+        return BertMatchModel(df, field_config=field_config, blocking_config=blocking_config, **common)
     if model_name == "siamese":
         from matchify.models.siamese_match_model import SiameseMatchModel
-        return SiameseMatchModel(
-            df,
-            field_config=field_config,
-            blocking_config=blocking_config,
-            ignored_columns=ignored_columns,
-        )
+        return SiameseMatchModel(df, field_config=field_config, blocking_config=blocking_config, **common)
     raise click.BadParameter(
         f"Unknown model '{model_name}'. Pick from: exact, flex, mlp, bert, siamese."
     )
@@ -98,8 +86,8 @@ def _available_models(requested):
 @click.option(
     "--all", "run_all", is_flag=True, default=False,
     help="Run every bundled dataset against every available model. "
-         "Overrides --dataset and --models. The deep models are skipped "
-         "automatically if the [deep] extra isn't installed.",
+         "Overrides --dataset and --models. Deep models are skipped if "
+         "[deep] isn't installed.",
 )
 @click.option(
     "--limit", default=None, type=int,
@@ -115,14 +103,33 @@ def _available_models(requested):
 )
 @click.option(
     "--confusion/--no-confusion", default=True,
-    help="Compute and emit the confusion matrix (slower; uses --threshold).",
+    help="Compute and emit the confusion matrix (slower, uses --threshold).",
 )
 @click.option(
     "--pr-curves", "pr_curves_dir", default=None, type=str,
     help="Directory to write per-dataset precision/recall PNGs to. "
          "Sweeps thresholds 0..1 in 0.02 steps for every model.",
 )
-def model_comparisons(datasets, models, run_all, limit, output_path, threshold, confusion, pr_curves_dir):
+@click.option(
+    "--test-size", default=0.0, type=float,
+    help="Fraction of groups to hold out for eval. Supervised models "
+         "only train on the train partition. 0 means no split.",
+)
+@click.option(
+    "--random-state", default=0, type=int,
+    help="Seed for the split + model RNGs. With --seeds N, uses "
+         "random_state, +1, ..., +N-1.",
+)
+@click.option(
+    "--seeds", default=1, type=int,
+    help="Number of seeds for stochastic models (MLP, Siamese). Each "
+         "seed gets its own train run. MRR and F1 reported as mean +/- std. "
+         "Deterministic models (Exact, Flex, BERT) ignore this flag.",
+)
+def model_comparisons(
+    datasets, models, run_all, limit, output_path, threshold, confusion,
+    pr_curves_dir, test_size, random_state, seeds,
+):
     """Run the configured models on the configured datasets, write HTML report.
 
     Try everything on a 500-row slice:
@@ -158,45 +165,69 @@ def model_comparisons(datasets, models, run_all, limit, output_path, threshold, 
         record = df[df["id"] == cfg["lookup_id"]].iloc[0]
         record = record[[x for x in record.index if x not in ignored_columns]]
 
+        from matchify.evaluation import aggregate_metric, aggregate_sweeps, is_stochastic
+
         model_results = []
         sweep_results = []
         for model_name in models:
-            click.echo(f"  - {model_name}: training/predicting...")
-            model = _build_model(
-                model_name, df, ignored_columns, cfg["field_config"], cfg["blocking_config"]
-            )
-            if hasattr(model, "train"):
-                model.train()
-            predictions = model.predict(
-                record, only_matches=False, return_full_record=True
-            ).head(10)
-            mrr = model.mrr()
-            click.echo(f"    MRR: {mrr:.4f}")
+            n_runs = seeds if is_stochastic(model_name) else 1
+            click.echo(f"  - {model_name}: {n_runs} seed{'s' if n_runs > 1 else ''}")
+
+            mrr_runs = []
+            sweep_runs = []
+            predictions = None
+            class_label = None
+            for seed_idx in range(n_runs):
+                seed = random_state + seed_idx
+                model = _build_model(
+                    model_name, df, ignored_columns, cfg["field_config"], cfg["blocking_config"],
+                    test_size=test_size, random_state=seed,
+                )
+                if hasattr(model, "train"):
+                    model.train()
+                if predictions is None:
+                    predictions = model.predict(
+                        record, only_matches=False, return_full_record=True
+                    ).head(10)
+                    class_label = type(model).__name__
+                mrr_runs.append(model.mrr())
+                if pr_curves_dir or confusion:
+                    sweep_runs.append(model.threshold_sweep())
+
+            mrr_mean, mrr_std = aggregate_metric(mrr_runs)
+            click.echo(f"    MRR: {mrr_mean:.4f} ± {mrr_std:.4f}" if n_runs > 1 else f"    MRR: {mrr_mean:.4f}")
+
             confusion_stats = None
-            if pr_curves_dir:
-                # one walk produces both the per-threshold sweep and the
-                # confusion matrix at the requested threshold. cheaper
-                # than running them separately.
-                sweep_df = model.threshold_sweep()
-                sweep_results.append((type(model).__name__, sweep_df))
+            sweep_df = None
+            if sweep_runs:
+                sweep_df = aggregate_sweeps(sweep_runs)
                 if confusion:
                     closest = (sweep_df['threshold'] - threshold).abs().idxmin()
                     confusion_stats = sweep_df.loc[closest].to_dict()
-            elif confusion:
-                confusion_stats = model.confusion_matrix(threshold=threshold)
+                    # also compute F1 std across seeds at the same threshold
+                    f1_runs = []
+                    for s in sweep_runs:
+                        c = (s['threshold'] - threshold).abs().idxmin()
+                        f1_runs.append(s.loc[c, 'f1'])
+                    f1_mean, f1_std = aggregate_metric(f1_runs)
+                    confusion_stats['f1_std'] = f1_std
+                if pr_curves_dir:
+                    sweep_results.append((class_label, sweep_df))
+
             if confusion_stats:
+                pm_std = f" ± {confusion_stats['f1_std']:.3f}" if confusion_stats.get('f1_std') else ""
                 click.echo(
                     f"    confusion@{threshold}: "
-                    f"tp={int(confusion_stats['tp'])} fp={int(confusion_stats['fp'])} "
-                    f"tn={int(confusion_stats['tn'])} fn={int(confusion_stats['fn'])} "
                     f"P={confusion_stats['precision']:.3f} "
                     f"R={confusion_stats['recall']:.3f} "
-                    f"F1={confusion_stats['f1']:.3f}"
+                    f"F1={confusion_stats['f1']:.3f}{pm_std}"
                 )
             model_results.append({
-                "model_name": type(model).__name__,
+                "model_name": class_label,
                 "predictions": predictions,
-                "mrr_score": mrr,
+                "mrr_score": mrr_mean,
+                "mrr_std": mrr_std,
+                "n_seeds": n_runs,
                 "confusion": confusion_stats,
             })
 
