@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='matchify',
-    version='1.2.0',
+    version='1.3.0',
     packages=find_packages(),
     install_requires=[
         'pandas',
@@ -33,8 +33,7 @@ setup(
             'torch>=2.0',
             'transformers>=4.29',
             'sentence-transformers>=2.2',
-            # Newer sentence-transformers wraps Hugging Face Trainer for
-            # fine-tuning (Siamese), which pulls in these directly.
+            # Siamese fine-tuning needs these
             'datasets',
             'accelerate>=0.20',
         ],
@@ -50,7 +49,7 @@ setup(
     },
     author='Johnny Saldana',
     author_email='johnny.saldana99@gmail.com',
-    description='A package for entity resolution using various models and strategies.',
+    description='Entity resolution / record linkage with five model implementations.',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/johnnysaldana/matchify',

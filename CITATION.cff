@@ -2,21 +2,19 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "matchify: A Python package for entity resolution and deduplication"
-version: 1.2.0
-date-released: 2023-05-21
+version: 1.3.0
+date-released: 2023-06-06
 license: MIT
 repository-code: "https://github.com/johnnysaldana/matchify"
 url: "https://github.com/johnnysaldana/matchify"
 abstract: >
-  matchify implements representative entity-resolution methods (record
-  linkage / deduplication) under a common interface, evaluated with mean
-  reciprocal rank on standard benchmark datasets. It ships a hash-based
-  ExactMatchModel baseline and a configurable, field-aware FlexMatchModel
-  supporting Jaro-Winkler, Levenshtein, TF-IDF cosine, and Jaccard
-  similarity, with prefix, sorted-neighborhood, block, and full blocking
-  strategies. The artifact comes out of an independent research project at
-  Johns Hopkins University (EN.601.507, Spring 2023, advised by
-  Dr. Tom Lippincott).
+  matchify is a Python package for entity resolution. Five models
+  under a common interface: hash-based exact match, rule-based field
+  similarity (Flex), supervised MLP on distance features, pretrained
+  sentence-BERT, and a fine-tuned Siamese encoder. Evaluated with MRR
+  and per-threshold precision/recall on four benchmarks (Amazon-Google,
+  Abt-Buy, DBLP-ACM, and a synthetic person-record dataset). Built for
+  EN.601.507 at Johns Hopkins, Spring 2023, advised by Tom Lippincott.
 authors:
   - family-names: Saldana
     given-names: Johnny

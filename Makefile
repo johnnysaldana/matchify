@@ -18,10 +18,12 @@ install-deep:
 	pip install -e ".[deep]"
 
 bench:
-	matchify model-comparisons --all --limit 500 --pr-curves docs/pr/
+	matchify model-comparisons --all --limit 500 \
+	  --test-size 0.3 --seeds 3 --random-state 0 \
+	  --pr-curves docs/pr/
 
 bench-quick:
-	matchify model-comparisons --all --limit 100
+	matchify model-comparisons --all --limit 100 --test-size 0.3 --seeds 2
 
 test:
 	pytest tests/
