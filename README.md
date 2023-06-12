@@ -24,8 +24,8 @@ real-world entity. `matchify` ships five models behind a common
   (`all-MiniLM-L6-v2`). Encodes records once, ranks by cosine
   similarity. Needs the `[deep]` extra.
 - `SiameseMatchModel`: same encoder, fine-tuned with contrastive loss
-  on positive/negative pairs (Mudgal et al., DeepER). Also needs
-  `[deep]`.
+  on positive/negative pairs (cf. Ebraheem et al., DeepER). Also
+  needs `[deep]`.
 
 Every model implements `mrr()`, `confusion_matrix(threshold)`, and
 `threshold_sweep()` from the base class.
