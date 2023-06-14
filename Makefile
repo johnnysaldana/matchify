@@ -1,4 +1,4 @@
-.PHONY: install install-deep bench bench-quick test lint format clean help
+.PHONY: install install-deep bench bench-quick test lint format paper clean help
 
 help:
 	@echo "matchify make targets:"
@@ -9,6 +9,7 @@ help:
 	@echo "  test           pytest tests/"
 	@echo "  lint           ruff check matchify/ tests/"
 	@echo "  format         ruff format matchify/ tests/"
+	@echo "  paper          Compile paper/matchify_paper.tex via tectonic"
 	@echo "  clean          Remove output.html and build artifacts"
 
 install:
@@ -33,6 +34,9 @@ lint:
 
 format:
 	ruff format matchify/ tests/
+
+paper:
+	cd paper && tectonic matchify_paper.tex
 
 clean:
 	rm -f output.html

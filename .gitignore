@@ -29,6 +29,15 @@ env/
 output.html
 docs/*.html
 
+# LaTeX intermediate files
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.toc
+paper/*.synctex.gz
+
 # Claude Code workspace state
 .claude/
 
