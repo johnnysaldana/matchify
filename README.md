@@ -57,35 +57,35 @@ Held-out evaluation on each dataset's test partition (~30% of groups,
 seed 0). Stochastic models reported as mean ± stddev across three seeds.
 F1 is at `--threshold 0.5`.
 
-### Amazon-Google Products (500 records, 142 test rows)
+### Amazon-Google Products (3737 records, 762 test rows)
 
 | Model | MRR | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|
-| ExactMatchModel | 0.239 | **1.000** | 0.200 | 0.333 |
-| FlexMatchModel | 0.465 | 0.095 | 0.881 | 0.172 |
-| MLPMatchModel | 0.602 ± 0.048 | 0.277 | 0.986 | **0.431 ± 0.057** |
-| BertMatchModel | 0.639 | 0.127 | 0.990 | 0.224 |
-| SiameseMatchModel | **0.667 ± 0.019** | 0.095 | **1.000** | 0.174 ± 0.008 |
+| ExactMatchModel | 0.130 | **1.000** | 0.103 | **0.187** |
+| FlexMatchModel | 0.252 | 0.016 | 0.813 | 0.031 |
+| MLPMatchModel | 0.396 +/- 0.037 | 0.040 | 0.995 | 0.077 +/- 0.007 |
+| BertMatchModel | 0.388 | 0.039 | 0.990 | 0.075 |
+| SiameseMatchModel | **0.459 +/- 0.018** | 0.018 | **1.000** | 0.035 +/- 0.006 |
 
-### Abt-Buy (500 records, 151 test rows)
-
-| Model | MRR | Precision | Recall | F1 |
-|---|---:|---:|---:|---:|
-| ExactMatchModel | 0.000 | 0.000 | 0.000 | 0.000 |
-| FlexMatchModel | 0.169 | 0.022 | 0.303 | 0.042 |
-| MLPMatchModel | **0.714 ± 0.078** | **0.179** | 0.967 | **0.302 ± 0.024** |
-| BertMatchModel | 0.516 | 0.063 | **1.000** | 0.118 |
-| SiameseMatchModel | 0.638 ± 0.073 | 0.044 | **1.000** | 0.085 ± 0.018 |
-
-### DBLP-ACM (500 records, 150 test rows)
+### Abt-Buy (2173 records, 652 test rows)
 
 | Model | MRR | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|
 | ExactMatchModel | 0.000 | 0.000 | 0.000 | 0.000 |
-| FlexMatchModel | **0.933** | 0.306 | **1.000** | 0.469 |
-| MLPMatchModel | 0.920 ± 0.013 | **1.000** | **1.000** | **1.000** |
-| BertMatchModel | **0.933** | 0.664 | **1.000** | 0.798 |
-| SiameseMatchModel | 0.920 ± 0.013 | 0.491 | **1.000** | 0.659 ± 0.019 |
+| FlexMatchModel | 0.084 | 0.006 | 0.308 | 0.011 |
+| MLPMatchModel | **0.636 +/- 0.051** | **0.048** | 0.992 | **0.092 +/- 0.004** |
+| BertMatchModel | 0.408 | 0.015 | **1.000** | 0.030 |
+| SiameseMatchModel | 0.530 +/- 0.008 | 0.008 | **1.000** | 0.016 +/- 0.001 |
+
+### DBLP-ACM (4910 records, 1330 test rows)
+
+| Model | MRR | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|
+| ExactMatchModel | 0.000 | 0.000 | 0.000 | 0.000 |
+| FlexMatchModel | **0.939** | 0.067 | **1.000** | 0.125 |
+| MLPMatchModel | 0.938 +/- 0.007 | **0.747** | 0.999 | **0.855 +/- 0.025** |
+| BertMatchModel | 0.933 | 0.144 | 0.998 | 0.252 |
+| SiameseMatchModel | 0.931 +/- 0.008 | 0.072 | **1.000** | 0.135 +/- 0.015 |
 
 ### Synthetic People (500 records, 105 test rows)
 

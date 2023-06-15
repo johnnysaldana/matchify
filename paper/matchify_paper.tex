@@ -2,7 +2,6 @@
 
 \usepackage[margin=1in]{geometry}
 \usepackage{microtype}
-\usepackage{authblk}
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{caption}
@@ -20,15 +19,15 @@
 \captionsetup{font=small, labelfont=bf, skip=4pt}
 
 \title{\bfseries Five Methodological Tiers of Entity Resolution: \\
-A Comparative Study Across Four Benchmark Datasets}
+A Comparative Study Across Four Benchmark Datasets\thanks{Work
+performed at Johns Hopkins University in Spring 2023 (course
+EN.601.507, advised by Dr.\ Tom Lippincott).}}
 
-\author[1]{Johnny Saldana}
-\affil[1]{Department of Computer Science, Johns Hopkins University \\
-\texttt{jsaldan2@jhu.edu}}
+\author{Johnny Saldana \\
+Johns Hopkins University \\
+\texttt{johnny.saldana99@gmail.com}}
 
-\date{EN.601.507 Applied Entity Resolution and Deduplication \\
-Spring 2023 \\
-Advised by Dr. Tom Lippincott, Center for Language and Speech Processing}
+\date{}
 
 \begin{document}
 
@@ -46,17 +45,26 @@ hash-based exact-match baseline to a fine-tuned twin-encoder Siamese
 network. The five models are exposed under a single abstract interface
 and evaluated on four benchmark datasets (Amazon-Google Products,
 Abt-Buy, DBLP-ACM, and a controlled synthetic person-record corpus).
-We adopt a held-out group split protocol so that supervised models
-never observe the group identifiers used at evaluation time, and we
-report mean reciprocal rank and threshold-swept precision-recall
-curves with multi-seed standard deviations on the stochastic models.
-The empirical findings are consistent with the literature in three of
-four configurations and surprising in one. On the cross-catalog
+Our contribution is threefold. We provide a reproducible reference
+implementation of five entity-resolution methods under a unified
+interface. We adopt a held-out group-split evaluation protocol that
+prevents the supervision leakage common in older entity-resolution
+evaluations, in which test-row group identifiers were sometimes
+visible to the supervised classifiers at training time. And we report
+an empirical observation that engineered distance-feature classifiers
+still outperform pretrained encoders, with or without fine-tuning, on
+small-vocabulary cross-catalog product data. Mean reciprocal rank and
+threshold-swept precision-recall curves with multi-seed standard
+deviations on the stochastic models support the finding. On the
 Abt-Buy benchmark a supervised multilayer perceptron over engineered
 field similarities outperforms both pretrained sentence-BERT and a
 fine-tuned Siamese variant by a wide margin, suggesting that on
 small-vocabulary, high-variance product corpora, the choice of feature
 representation still dominates the choice of architecture.
+
+\medskip
+\noindent\textbf{Code and data.}
+\url{https://github.com/johnnysaldana/matchify}
 \end{abstract}
 
 \section{Introduction}
@@ -98,7 +106,8 @@ implements five entity resolution models under a single abstract
 interface and evaluates them on four benchmark datasets under a
 consistent experimental protocol. The five models trace the
 methodological progression of the field. The first is a hash-based
-exact-match baseline that returns the rules-of-the-game lower bound.
+exact-match baseline that establishes a lower bound for any
+non-trivial method.
 The second is a configurable rule-based field-similarity model in the
 spirit of the Magellan toolkit \citep{konda2016}, supporting per-field
 type-aware normalization, four string-similarity metrics, and four
@@ -426,9 +435,10 @@ and report the mean and sample standard deviation of MRR and F1. The
 deterministic models (Exact, Flex, BERT) ignore the seed parameter and
 return a single value.
 
-The first 500 records of each benchmark are used. This is a slice
-chosen to fit a single-laptop runtime budget, and Section
-\ref{sec:limitations} discusses the implications.
+We evaluate on the full corpus of each benchmark, which gives test
+partitions of 762 records on Amazon-Google, 652 on Abt-Buy, 1330 on
+DBLP-ACM, and 105 on Synthetic People (where singletons are not
+eligible test rows).
 
 \section{Results}
 \label{sec:results}
@@ -440,25 +450,25 @@ $\pm$ stddev across three seeds.
 
 \begin{table}[t]
 \centering
-\caption{Amazon-Google Products. 500 records, 142 test rows.}
+\caption{Amazon-Google Products. 3737 records, 762 test rows.}
 \label{tab:ag}
 \small
 \begin{tabular}{lcccc}
 \toprule
 Model & MRR & Prec & Rec & F1 \\
 \midrule
-ExactMatch & 0.239 & 1.000 & 0.200 & 0.333 \\
-FlexMatch  & 0.465 & 0.095 & 0.881 & 0.172 \\
-MLP        & 0.602 \scriptsize{$\pm$ 0.048} & 0.277 & 0.986 & \textbf{0.431} \scriptsize{$\pm$ 0.057} \\
-Bert       & 0.639 & 0.127 & 0.990 & 0.224 \\
-Siamese    & \textbf{0.667} \scriptsize{$\pm$ 0.019} & 0.095 & 1.000 & 0.174 \scriptsize{$\pm$ 0.008} \\
+ExactMatch & 0.130 & \textbf{1.000} & 0.103 & \textbf{0.187} \\
+FlexMatch  & 0.252 & 0.016 & 0.813 & 0.031 \\
+MLP        & 0.396 \scriptsize{$\pm$ 0.037} & 0.040 & 0.995 & 0.077 \scriptsize{$\pm$ 0.007} \\
+Bert       & 0.388 & 0.039 & 0.990 & 0.075 \\
+Siamese    & \textbf{0.459} \scriptsize{$\pm$ 0.018} & 0.018 & \textbf{1.000} & 0.035 \scriptsize{$\pm$ 0.006} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[t]
 \centering
-\caption{Abt-Buy. 500 records, 151 test rows.}
+\caption{Abt-Buy. 2173 records, 652 test rows.}
 \label{tab:ab}
 \small
 \begin{tabular}{lcccc}
@@ -466,17 +476,17 @@ Siamese    & \textbf{0.667} \scriptsize{$\pm$ 0.019} & 0.095 & 1.000 & 0.174 \sc
 Model & MRR & Prec & Rec & F1 \\
 \midrule
 ExactMatch & 0.000 & 0.000 & 0.000 & 0.000 \\
-FlexMatch  & 0.169 & 0.022 & 0.303 & 0.042 \\
-MLP        & \textbf{0.714} \scriptsize{$\pm$ 0.078} & 0.179 & 0.967 & \textbf{0.302} \scriptsize{$\pm$ 0.024} \\
-Bert       & 0.516 & 0.063 & 1.000 & 0.118 \\
-Siamese    & 0.638 \scriptsize{$\pm$ 0.073} & 0.044 & 1.000 & 0.085 \scriptsize{$\pm$ 0.018} \\
+FlexMatch  & 0.084 & 0.006 & 0.308 & 0.011 \\
+MLP        & \textbf{0.636} \scriptsize{$\pm$ 0.051} & 0.048 & 0.992 & \textbf{0.092} \scriptsize{$\pm$ 0.004} \\
+Bert       & 0.408 & 0.015 & \textbf{1.000} & 0.030 \\
+Siamese    & 0.530 \scriptsize{$\pm$ 0.008} & 0.008 & \textbf{1.000} & 0.016 \scriptsize{$\pm$ 0.001} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[t]
 \centering
-\caption{DBLP-ACM. 500 records, 150 test rows.}
+\caption{DBLP-ACM. 4910 records, 1330 test rows.}
 \label{tab:dblp}
 \small
 \begin{tabular}{lcccc}
@@ -484,10 +494,10 @@ Siamese    & 0.638 \scriptsize{$\pm$ 0.073} & 0.044 & 1.000 & 0.085 \scriptsize{
 Model & MRR & Prec & Rec & F1 \\
 \midrule
 ExactMatch & 0.000 & 0.000 & 0.000 & 0.000 \\
-FlexMatch  & 0.933 & 0.306 & 1.000 & 0.469 \\
-MLP        & 0.920 \scriptsize{$\pm$ 0.013} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} \\
-Bert       & 0.933 & 0.664 & 1.000 & 0.798 \\
-Siamese    & 0.920 \scriptsize{$\pm$ 0.013} & 0.491 & 1.000 & 0.659 \scriptsize{$\pm$ 0.019} \\
+FlexMatch  & \textbf{0.939} & 0.067 & \textbf{1.000} & 0.125 \\
+MLP        & 0.938 \scriptsize{$\pm$ 0.007} & \textbf{0.747} & 0.999 & \textbf{0.855} \scriptsize{$\pm$ 0.025} \\
+Bert       & 0.933 & 0.144 & 0.998 & 0.252 \\
+Siamese    & 0.931 \scriptsize{$\pm$ 0.008} & 0.072 & \textbf{1.000} & 0.135 \scriptsize{$\pm$ 0.015} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -501,11 +511,11 @@ Siamese    & 0.920 \scriptsize{$\pm$ 0.013} & 0.491 & 1.000 & 0.659 \scriptsize{
 \toprule
 Model & MRR & Prec & Rec & F1 \\
 \midrule
-ExactMatch & 0.476 & 1.000 & 0.411 & 0.583 \\
-FlexMatch  & 0.929 & 0.307 & 1.000 & 0.470 \\
-MLP        & 0.919 \scriptsize{$\pm$ 0.027} & 0.909 & 1.000 & \textbf{0.952} \scriptsize{$\pm$ 0.012} \\
-Bert       & \textbf{0.933} & 0.197 & 1.000 & 0.329 \\
-Siamese    & 0.917 \scriptsize{$\pm$ 0.021} & 0.608 & 1.000 & 0.756 \scriptsize{$\pm$ 0.028} \\
+ExactMatch & 0.476 & \textbf{1.000} & 0.411 & 0.583 \\
+FlexMatch  & 0.929 & 0.307 & \textbf{1.000} & 0.470 \\
+MLP        & 0.919 \scriptsize{$\pm$ 0.027} & 0.909 & \textbf{1.000} & \textbf{0.952} \scriptsize{$\pm$ 0.012} \\
+Bert       & \textbf{0.933} & 0.197 & \textbf{1.000} & 0.329 \\
+Siamese    & 0.917 \scriptsize{$\pm$ 0.021} & 0.608 & \textbf{1.000} & 0.756 \scriptsize{$\pm$ 0.028} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -558,42 +568,49 @@ Four datasets surface four distinct patterns.
 
 \subsection{Loose-text product catalogs reward fine-tuning (Amazon-Google)}
 
-On Amazon-Google the MRR improves monotonically with model
-sophistication. ExactMatch produces 0.24, the rule-based Flex produces
-0.47, the supervised MLP produces 0.60, the pretrained BERT produces
-0.64, and the fine-tuned Siamese produces 0.67. This is the pattern
-the literature would predict for a free-text dataset in which the same
-product is described in materially different language by the two
-sources. The fine-tuned encoder benefits from having seen positive and
-negative pairs from the dataset itself, and the resulting embedding
-geometry rewards near-paraphrases of product descriptions even when
-the surface forms diverge. The per-seed variance on Siamese (0.019) is
-small enough that the four-MRR-point lead over BERT is unlikely to be
-seed noise.
+On Amazon-Google the MRR improves with model sophistication. ExactMatch
+produces 0.13, the rule-based Flex produces 0.25, the supervised MLP
+produces 0.40, the pretrained BERT produces 0.39, and the fine-tuned
+Siamese produces 0.46. This is the pattern the literature would
+predict for a free-text dataset in which the same product is described
+in materially different language by the two sources. The fine-tuned
+encoder benefits from having seen positive and negative pairs from the
+dataset itself, and the resulting embedding geometry rewards
+near-paraphrases of product descriptions even when the surface forms
+diverge. The per-seed variance on Siamese (0.018) is small enough that
+the seven-MRR-point lead over BERT is unlikely to be seed noise.
+
+The classification F1 column tells a different story. ExactMatch wins
+F1 at 0.187 because it produces few candidate pairs and those it
+produces are uniformly correct (precision 1.0). The trained models all
+score below F1 0.10 because their candidate sets are much larger and
+the threshold of 0.5 admits too many false positives. This is a
+calibration issue rather than a ranking failure, and the
+precision-recall sweep in Figure \ref{fig:pr} shows that the encoder
+models can recover useful F1 at higher thresholds.
 
 \subsection{Cross-catalog text breaks BERT but not MLP (Abt-Buy)}
 
-The Abt-Buy result is the surprising one. The MLP achieves MRR 0.71,
-significantly ahead of pretrained BERT at 0.52 and of the fine-tuned
-Siamese at 0.64. This inverts the order on Amazon-Google. Three
-observations help explain it. First, Abt-Buy is the smallest of the
-real-world benchmarks (about 2200 records) and the supervision signal
-is correspondingly thinner. The seed standard deviations for MLP
-(0.078) and Siamese (0.073) are both more than three times what they
-were on Amazon-Google, suggesting that pair sampling matters more when
-the underlying training set is smaller. Second, Abt and Buy describe
-products in radically different registers, with Abt offering long
-marketing-prose descriptions and Buy offering terse listings. This
-kind of cross-domain language gap is exactly the case that generic
-semantic similarity, as offered by the pretrained sentence-transformer,
-fails to bridge. The MLP, by contrast, learns on the labeled pairs
-which similarity dimensions actually carry signal, and it can
-downweight the prose-versus-terse mismatch in favor of correlations on
-name and price. Third, the Siamese model does help over pretrained
-BERT (0.64 versus 0.52) but does not catch up to MLP. We interpret
-this as evidence that on a small, noisy benchmark, the encoder
-fine-tuning has too little supervision to specialize the embedding
-geometry usefully.
+The Abt-Buy result is the most striking. The MLP achieves MRR 0.64,
+well ahead of the fine-tuned Siamese at 0.53 and the pretrained BERT
+at 0.41. This inverts the order on Amazon-Google. Three observations
+help explain it. First, Abt-Buy is the smallest of the real-world
+benchmarks (about 2200 records) and the supervision signal is
+correspondingly thinner. The seed standard deviation for MLP (0.051)
+is roughly three times what it was on Amazon-Google, suggesting that
+pair sampling matters more when the underlying training set is
+smaller. Second, Abt and Buy describe products in radically different
+registers, with Abt offering long marketing-prose descriptions and
+Buy offering terse listings. This kind of cross-domain language gap
+is exactly the case that generic semantic similarity, as offered by
+the pretrained sentence-transformer, fails to bridge. The MLP, by
+contrast, learns on the labeled pairs which similarity dimensions
+actually carry signal, and it can downweight the prose-versus-terse
+mismatch in favor of correlations on name and price. Third, the
+Siamese model does help over pretrained BERT (0.53 versus 0.41) but
+does not catch up to MLP. We interpret this as evidence that on a
+small, noisy benchmark, the encoder fine-tuning has too little
+supervision to specialize the embedding geometry usefully.
 
 The takeaway from Abt-Buy is that on this kind of cross-catalog
 small-vocabulary corpus, engineered features plus a learned weighting
@@ -605,19 +622,19 @@ casual reading of the deep-ER literature would predict.
 \subsection{Saturated structured benchmark (DBLP-ACM)}
 
 DBLP-ACM is widely understood to be near-saturated. The four trained
-models all reach MRR 0.92 to 0.93, and the rank ordering they impose
+models all reach MRR 0.93 to 0.94, and the rank ordering they impose
 on candidate matches is essentially identical. The classification F1
-at the fixed 0.5 threshold separates the models, with the MLP
-achieving perfect P=R=F1=1.0 and the cosine-similarity models trailing
-because their score distributions place too many non-matching pairs
-above 0.5 at inference time. This is not a failure of ranking but of
-threshold calibration.
+at the fixed 0.5 threshold separates the models, with the MLP at 0.86
+and the others below 0.30. The MLP advantage comes from its calibrated
+classifier head, which produces a usefully bimodal score distribution
+at inference time, while the cosine-similarity models place too many
+non-matching pairs above 0.5. This is a calibration issue rather than
+a failure of ranking.
 
 Ditto \citep{li2020} reports F1 0.989 on this dataset using its
-labeled-pair protocol. The MLP's perfect F1 in our setting reflects
-both the saturated nature of DBLP-ACM and our use of a calibrated
-classifier head as the score, which yields a usefully bimodal score
-distribution at inference time.
+labeled-pair protocol. Our MLP's F1 of 0.86 on the all-pairs candidate
+set is lower because the protocol is harder, not because the model is
+weaker.
 
 \subsection{Synthetic perturbation favors engineered features (Synthetic People)}
 
@@ -663,16 +680,16 @@ Table \ref{tab:baselines} reports these numbers.
 \begin{table}[t]
 \centering
 \caption{F1 reported on these datasets by two strong deep-ER systems,
-compared to this package's best F1.}
+compared to this package's best F1 at threshold 0.5.}
 \label{tab:baselines}
 \small
 \begin{tabular}{lccc}
 \toprule
 Dataset & DeepMatcher & Ditto & This work \\
 \midrule
-Amazon-Google & 0.694 & 0.751 & 0.431 (MLP) \\
-Abt-Buy       & 0.628 & 0.892 & 0.302 (MLP) \\
-DBLP-ACM      & 0.984 & 0.989 & 1.000 (MLP) \\
+Amazon-Google & 0.694 & 0.751 & 0.187 (Exact) \\
+Abt-Buy       & 0.628 & 0.892 & 0.092 (MLP) \\
+DBLP-ACM      & 0.984 & 0.989 & 0.855 (MLP) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -696,33 +713,35 @@ re-running DeepMatcher and Ditto under our protocol, which we have not
 done. We treat the cited numbers as a ceiling reference rather than a
 head-to-head bar.
 
-Within our protocol, DBLP-ACM is essentially saturated by the MLP at
-F1 1.000. Amazon-Google and Abt-Buy retain headroom, with the gap to
+Within our protocol, DBLP-ACM still has headroom for the MLP (F1
+0.855 versus the published 0.989). Amazon-Google and Abt-Buy retain
+much more headroom, with the gap to
 the published numbers traceable to a combination of blocking recall,
 threshold calibration, and the protocol mismatch.
 
 \section{Limitations}
 \label{sec:limitations}
 
-The benchmark is run on the first 500 records of each dataset rather
-than the full corpus, in order to keep the wall-clock time within a
-single-laptop budget of approximately 25 minutes for the full
-five-models-on-four-datasets sweep. Full-data results would require
-approximately one to two orders of magnitude more compute and were
-deferred. The relative ordering across models is unlikely to invert on
-full data, but absolute MRR and F1 levels would change.
-
 The Magellan baseline was not re-run because
 \texttt{py\_entitymatching} does not install on the Python 3.10+
-environment in which the rest of the package runs. The DeepMatcher and
-Ditto numbers cited in Section \ref{sec:baselines} are from those
-papers' published evaluations under their own protocols.
+environment in which the rest of the package runs. The DeepMatcher
+and Ditto numbers cited in Section \ref{sec:baselines} are from those
+papers' published evaluations under their own protocols, which use
+labeled-pair test sets rather than the all-pairs candidate set we use
+here. The two cannot be directly compared.
+
+The fixed threshold of 0.5 for the F1 column is the dominant source
+of the spread between MRR (where models cluster) and F1 (where
+calibration separates them). A more decisive comparison would tune
+the threshold per model on a held-out validation set. The
+precision-recall sweep in Figure \ref{fig:pr} substitutes for that to
+some extent.
 
 The synthetic person dataset was generated by the package itself.
 While the underlying perturbation rules are documented and
-reproducible, the resulting corpus is not standardized and its results
-should be interpreted as a controlled case study rather than a
-benchmark.
+reproducible, the resulting corpus is not standardized and its
+results should be interpreted as a controlled case study rather than
+a benchmark.
 
 The held-out group split partitions groups 70/30 with a single random
 seed. A more careful evaluation would average across multiple splits.
@@ -750,7 +769,8 @@ five-models-on-four-datasets sweep with the held-out split, three
 seeds, and the precision-recall threshold sweep. Output is written to
 \texttt{output.html} for the side-by-side prediction tables and to
 \texttt{docs/pr/} for the precision-recall curves. The benchmark takes
-approximately 25 minutes on an Apple M-series MacBook.
+approximately three hours on an Apple M-series MacBook (mostly
+Siamese fine-tuning across three seeds on each dataset).
 
 The package archive is registered with Zenodo for citation. See
 \texttt{CITATION.cff} for the canonical citation.
