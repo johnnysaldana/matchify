@@ -285,5 +285,5 @@ MIT, see `LICENSE`.
 
 ## Acknowledgements
 
-Advised by Dr. Tom Lippincott (Center for Language and Speech Processing,
+Advised by Professor Tom Lippincott (Center for Language and Speech Processing,
 Johns Hopkins University). 
