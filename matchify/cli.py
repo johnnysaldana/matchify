@@ -175,6 +175,7 @@ def model_comparisons(
 
             mrr_runs = []
             sweep_runs = []
+            confusion_runs = []
             predictions = None
             class_label = None
             for seed_idx in range(n_runs):
@@ -192,7 +193,12 @@ def model_comparisons(
                     class_label = type(model).__name__
                 mrr_runs.append(model.mrr())
                 if pr_curves_dir or confusion:
+                    # threshold_sweep caches the scored pairs internally,
+                    # so confusion_matrix at the user-specified threshold
+                    # reuses them without re-running predict.
                     sweep_runs.append(model.threshold_sweep())
+                    if confusion:
+                        confusion_runs.append(model.confusion_matrix(threshold))
 
             mrr_mean, mrr_std = aggregate_metric(mrr_runs)
             click.echo(f"    MRR: {mrr_mean:.4f} ± {mrr_std:.4f}" if n_runs > 1 else f"    MRR: {mrr_mean:.4f}")
@@ -201,16 +207,21 @@ def model_comparisons(
             sweep_df = None
             if sweep_runs:
                 sweep_df = aggregate_sweeps(sweep_runs)
-                if confusion:
-                    closest = (sweep_df['threshold'] - threshold).abs().idxmin()
-                    confusion_stats = sweep_df.loc[closest].to_dict()
-                    # also compute F1 std across seeds at the same threshold
-                    f1_runs = []
-                    for s in sweep_runs:
-                        c = (s['threshold'] - threshold).abs().idxmin()
-                        f1_runs.append(s.loc[c, 'f1'])
-                    f1_mean, f1_std = aggregate_metric(f1_runs)
-                    confusion_stats['f1_std'] = f1_std
+                if confusion_runs:
+                    # average the per-seed confusion stats at the
+                    # user-specified threshold rather than reading off
+                    # the aggregated PR curve (whose threshold axis is
+                    # not aligned across seeds).
+                    p_mean, _ = aggregate_metric([c['precision'] for c in confusion_runs])
+                    r_mean, _ = aggregate_metric([c['recall'] for c in confusion_runs])
+                    f1_mean, f1_std = aggregate_metric([c['f1'] for c in confusion_runs])
+                    confusion_stats = {
+                        'threshold': threshold,
+                        'precision': p_mean,
+                        'recall': r_mean,
+                        'f1': f1_mean,
+                        'f1_std': f1_std,
+                    }
                 if pr_curves_dir:
                     sweep_results.append((class_label, sweep_df))
 

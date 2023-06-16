@@ -160,7 +160,11 @@ class ERBaseModel(abc.ABC):
 
     def _score_all_pairs(self):
         # walk eval rows once, collect (score, is_match) per candidate pair.
-        # shared between confusion_matrix and threshold_sweep.
+        # shared between confusion_matrix and threshold_sweep. cache the
+        # result so repeated callers (e.g., sweep + confusion at one
+        # threshold) don't re-run predict over every eval row.
+        if getattr(self, '_pair_score_cache', None) is not None:
+            return self._pair_score_cache
         if 'group_id' not in self.df.columns:
             raise Exception('scoring requires group_id column')
 
@@ -192,6 +196,7 @@ class ERBaseModel(abc.ABC):
                 labels.append(bool(actual_match))
             progress_bar.update(1)
         progress_bar.close()
+        self._pair_score_cache = (scores, labels)
         return scores, labels
 
     @staticmethod
@@ -222,9 +227,22 @@ class ERBaseModel(abc.ABC):
         return self._stats_at_threshold(scores, labels, threshold)
 
     def threshold_sweep(self, thresholds=None) -> pd.DataFrame:
-        """confusion_matrix at many thresholds, predict only runs once per row."""
-        if thresholds is None:
-            thresholds = [i / 50.0 for i in range(51)]
+        """confusion_matrix at many thresholds, predict only runs once per row.
+
+        With thresholds=None, sweep at the distinct observed scores
+        (capped at 200 quantile-thinned points so plots stay readable
+        when scores are dense). A fixed grid loses resolution when scores
+        cluster, which produces degenerate PR curves for models whose
+        outputs are bimodal or live in a narrow band.
+        """
+        import numpy as np
         scores, labels = self._score_all_pairs()
-        rows = [self._stats_at_threshold(scores, labels, t) for t in thresholds]
+        if thresholds is None:
+            arr = np.asarray(scores, dtype=float)
+            uniq = np.unique(arr) if arr.size else np.array([0.0])
+            if len(uniq) > 200:
+                uniq = np.unique(np.quantile(uniq, np.linspace(0.0, 1.0, 200)))
+            sentinel = float(uniq[-1]) + 1e-9
+            thresholds = np.unique(np.concatenate(([0.0], uniq, [sentinel])))
+        rows = [self._stats_at_threshold(scores, labels, float(t)) for t in thresholds]
         return pd.DataFrame(rows)
