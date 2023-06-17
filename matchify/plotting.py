@@ -28,6 +28,13 @@ def save_pr_curve(sweep_results, output_path, title=None):
     fig, ax = plt.subplots(figsize=(6, 5))
     for label, sweep_df in sweep_results:
         df = sweep_df.sort_values('recall').reset_index(drop=True)
+        # drop the trivial (recall=0, precision=0) sentinel that the
+        # sweep emits at the highest threshold. keeping it draws a
+        # phantom line from the origin to the leftmost real operating
+        # point, which is misleading when the model's smallest non-zero
+        # recall is well above zero (e.g., bimodal score distributions
+        # on small datasets).
+        df = df[~((df['recall'] == 0.0) & (df['precision'] == 0.0))].reset_index(drop=True)
         ops = _operating_points(df)
         if len(ops) <= 1:
             # binary scorer: plot the single operating point as a marker.

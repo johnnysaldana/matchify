@@ -38,15 +38,24 @@ def aggregate_sweeps(sweep_dfs) -> pd.DataFrame:
     grid = np.linspace(0.0, 1.0, 101)
     p_curves = []
     for s in sweep_dfs:
+        # drop the trivial (recall=0, precision=0) sentinel that the
+        # threshold_sweep emits at the highest threshold. keeping it
+        # makes np.interp draw a phantom diagonal from the origin to
+        # the leftmost real operating point, which appears on small
+        # datasets where the smallest non-zero recall is well above 0.
+        clean = s[~((s['recall'] == 0.0) & (s['precision'] == 0.0))]
         # for each recall, keep the best precision (Pareto frontier).
         # then sort by recall ascending so np.interp gets a monotone xp.
-        agg = s.groupby('recall', as_index=False)['precision'].max()
+        agg = clean.groupby('recall', as_index=False)['precision'].max()
         agg = agg.sort_values('recall')
         r = agg['recall'].to_numpy(dtype=float)
         p = agg['precision'].to_numpy(dtype=float)
-        # left=0 gives precision=0 below the smallest observed recall;
+        # left=first_p extends precision below the smallest observed
+        # recall as a flat plateau (sklearn convention: precision is
+        # undefined when no predictions are made, so we anchor it to
+        # the first real value rather than zero).
         # right=last_p extends to recall=1 cleanly.
-        p_curves.append(np.interp(grid, r, p, left=0.0, right=float(p[-1])))
+        p_curves.append(np.interp(grid, r, p, left=float(p[0]), right=float(p[-1])))
 
     p_mean = np.mean(p_curves, axis=0)
     f1 = np.where(p_mean + grid > 0, 2 * p_mean * grid / (p_mean + grid), 0.0)
