@@ -426,8 +426,15 @@ locating the first true positive in each ranked candidate list and
 averaging the reciprocal of its rank across all test rows. The
 classification metrics, precision, recall, and F1, are reported at a
 single fixed threshold of 0.5 over all candidate pairs the model
-produced. We additionally report a precision-recall curve produced by
-sweeping the threshold over 51 evenly-spaced points in [0, 1].
+produced. We additionally report a precision-recall curve produced
+by sweeping the threshold over the distinct observed score values
+for each model (capped at 200 quantile-thinned points so densely
+populated distributions stay readable). A fixed grid in [0, 1] is
+the conventional choice but loses resolution when scores cluster
+bimodally or in a narrow band, which collapses the resulting curve
+to a near-straight diagonal that misrepresents the precision-recall
+trade-off. Sweeping at observed values keeps every operating point
+the model can actually express.
 
 For the stochastic models (MLP and Siamese), we run training and
 evaluation with three random seeds (\texttt{random\_state} 0, 1, 2)
@@ -520,8 +527,8 @@ Siamese    & 0.917 \scriptsize{$\pm$ 0.021} & 0.608 & \textbf{1.000} & 0.756 \sc
 \end{tabular}
 \end{table}
 
-Precision-recall curves swept across 51 evenly-spaced thresholds in
-[0, 1] are shown in Figure \ref{fig:pr}. The curves are useful for
+Precision-recall curves swept across each model's observed score
+values are shown in Figure \ref{fig:pr}. The curves are useful for
 inspecting how each model trades precision against recall, since the
 single-threshold F1 reports do not capture the shape of that trade.
 
@@ -553,9 +560,10 @@ single-threshold F1 reports do not capture the shape of that trade.
 \caption{Synthetic People}
 \end{subfigure}
 \caption{Precision-recall curves across the four benchmark datasets.
-Each curve is one model swept across thresholds 0 to 1 in steps of
-0.02. ExactMatch collapses to a point because it produces a binary
-score.}
+Each curve is one model swept across the distinct observed score
+values for that model, with stochastic models averaged over three
+seeds. ExactMatch is plotted as a single marker because it produces
+a binary score and cannot interpolate a precision-recall trade-off.}
 \label{fig:pr}
 \end{figure*}
 
