@@ -351,7 +351,7 @@ All five models inherit from an abstract base class
 \texttt{ERBaseModel} that specifies the methods \texttt{train(...)},
 \texttt{predict(record, ...)}, \texttt{mrr()},
 \texttt{confusion\_matrix(threshold)}, and
-\texttt{threshold\_sweep()}. The latter three implement the evaluation
+\texttt{pr\_curve()}. The latter three implement the evaluation
 logic uniformly, walking the held-out test rows once and computing
 both ranking and classification metrics from the same set of predicted
 candidate scores. This uniform interface ensures that all five models

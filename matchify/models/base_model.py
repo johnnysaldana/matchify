@@ -160,9 +160,9 @@ class ERBaseModel(abc.ABC):
 
     def _score_all_pairs(self):
         # walk eval rows once, collect (score, is_match) per candidate pair.
-        # shared between confusion_matrix and threshold_sweep. cache the
-        # result so repeated callers (e.g., sweep + confusion at one
-        # threshold) don't re-run predict over every eval row.
+        # shared between confusion_matrix and pr_curve. cache the result
+        # so repeated callers (e.g., curve + confusion at one threshold)
+        # don't re-run predict over every eval row.
         if getattr(self, '_pair_score_cache', None) is not None:
             return self._pair_score_cache
         if 'group_id' not in self.df.columns:
@@ -226,13 +226,14 @@ class ERBaseModel(abc.ABC):
         scores, labels = self._score_all_pairs()
         return self._stats_at_threshold(scores, labels, threshold)
 
-    def threshold_sweep(self, thresholds=None) -> pd.DataFrame:
-        """confusion_matrix at many thresholds, predict only runs once per row.
+    def pr_curve(self, thresholds=None) -> pd.DataFrame:
+        """Precision-recall curve. confusion_matrix at many thresholds,
+        predict only runs once per row.
 
-        With thresholds=None, sweep at the distinct observed scores
+        With thresholds=None, evaluate at the distinct observed scores
         (capped at 200 quantile-thinned points so plots stay readable
         when scores are dense). A fixed grid loses resolution when scores
-        cluster, which produces degenerate PR curves for models whose
+        cluster, which produces degenerate curves for models whose
         outputs are bimodal or live in a narrow band.
         """
         import numpy as np

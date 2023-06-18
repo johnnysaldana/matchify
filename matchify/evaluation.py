@@ -18,28 +18,28 @@ def aggregate_metric(values):
     return float(mean(values)), float(stdev(values))
 
 
-def aggregate_sweeps(sweep_dfs) -> pd.DataFrame:
+def aggregate_pr_curves(curves) -> pd.DataFrame:
     """
-    Average a list of threshold_sweep DataFrames into one PR curve.
+    Average a list of per-seed PR-curve DataFrames into one curve.
 
-    Per-seed sweeps now use observed scores as thresholds, so the
-    threshold sets differ across seeds and per-threshold averaging is
-    no longer well-defined. Instead, interpolate each sweep's precision
-    onto a common recall grid and average. F1 is recomputed from the
-    averaged precision/recall so it stays consistent.
+    Per-seed curves use observed scores as thresholds, so the threshold
+    sets differ across seeds and per-threshold averaging is no longer
+    well-defined. Instead, interpolate each curve's precision onto a
+    common recall grid and average. F1 is recomputed from the averaged
+    precision/recall so it stays consistent.
     """
     import numpy as np
 
-    if not sweep_dfs:
+    if not curves:
         return pd.DataFrame()
-    if len(sweep_dfs) == 1:
-        return sweep_dfs[0].copy()
+    if len(curves) == 1:
+        return curves[0].copy()
 
     grid = np.linspace(0.0, 1.0, 101)
     p_curves = []
-    for s in sweep_dfs:
+    for s in curves:
         # drop the trivial (recall=0, precision=0) sentinel that the
-        # threshold_sweep emits at the highest threshold. keeping it
+        # per-seed curve emits at the highest threshold. keeping it
         # makes np.interp draw a phantom diagonal from the origin to
         # the leftmost real operating point, which appears on small
         # datasets where the smallest non-zero recall is well above 0.

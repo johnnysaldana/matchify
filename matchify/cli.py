@@ -165,16 +165,16 @@ def model_comparisons(
         record = df[df["id"] == cfg["lookup_id"]].iloc[0]
         record = record[[x for x in record.index if x not in ignored_columns]]
 
-        from matchify.evaluation import aggregate_metric, aggregate_sweeps, is_stochastic
+        from matchify.evaluation import aggregate_metric, aggregate_pr_curves, is_stochastic
 
         model_results = []
-        sweep_results = []
+        pr_curve_results = []
         for model_name in models:
             n_runs = seeds if is_stochastic(model_name) else 1
             click.echo(f"  - {model_name}: {n_runs} seed{'s' if n_runs > 1 else ''}")
 
             mrr_runs = []
-            sweep_runs = []
+            pr_curve_runs = []
             confusion_runs = []
             predictions = None
             class_label = None
@@ -193,10 +193,10 @@ def model_comparisons(
                     class_label = type(model).__name__
                 mrr_runs.append(model.mrr())
                 if pr_curves_dir or confusion:
-                    # threshold_sweep caches the scored pairs internally,
-                    # so confusion_matrix at the user-specified threshold
+                    # pr_curve caches the scored pairs internally, so
+                    # confusion_matrix at the user-specified threshold
                     # reuses them without re-running predict.
-                    sweep_runs.append(model.threshold_sweep())
+                    pr_curve_runs.append(model.pr_curve())
                     if confusion:
                         confusion_runs.append(model.confusion_matrix(threshold))
 
@@ -204,9 +204,9 @@ def model_comparisons(
             click.echo(f"    MRR: {mrr_mean:.4f} ± {mrr_std:.4f}" if n_runs > 1 else f"    MRR: {mrr_mean:.4f}")
 
             confusion_stats = None
-            sweep_df = None
-            if sweep_runs:
-                sweep_df = aggregate_sweeps(sweep_runs)
+            pr_curve_df = None
+            if pr_curve_runs:
+                pr_curve_df = aggregate_pr_curves(pr_curve_runs)
                 if confusion_runs:
                     # average the per-seed confusion stats at the
                     # user-specified threshold rather than reading off
@@ -223,7 +223,7 @@ def model_comparisons(
                         'f1_std': f1_std,
                     }
                 if pr_curves_dir:
-                    sweep_results.append((class_label, sweep_df))
+                    pr_curve_results.append((class_label, pr_curve_df))
 
             if confusion_stats:
                 pm_std = f" ± {confusion_stats['f1_std']:.3f}" if confusion_stats.get('f1_std') else ""
@@ -242,10 +242,10 @@ def model_comparisons(
                 "confusion": confusion_stats,
             })
 
-        if pr_curves_dir and sweep_results:
+        if pr_curves_dir and pr_curve_results:
             from matchify.plotting import save_pr_curve
             png_path = os.path.join(pr_curves_dir, f"pr_{dataset_key}.png")
-            save_pr_curve(sweep_results, png_path, title=cfg['label'])
+            save_pr_curve(pr_curve_results, png_path, title=cfg['label'])
             click.echo(f"    PR curve: {png_path}")
 
         dataset_results.append({

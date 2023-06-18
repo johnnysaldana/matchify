@@ -1,13 +1,13 @@
 import os
 
 
-def save_pr_curve(sweep_results, output_path, title=None):
+def save_pr_curve(curves, output_path, title=None):
     """
     Plot precision & recall curves for one or more models on a single
     figure and write to output_path.
 
-    sweep_results is a list of (label, sweep_df) tuples. Models whose
-    sweep collapses to a single non-trivial operating point (e.g.,
+    curves is a list of (label, pr_curve_df) tuples. Models whose
+    curve collapses to a single non-trivial operating point (e.g.,
     ExactMatchModel produces only 0/1 scores so there is one decision
     point and two boundary points) are rendered as a marker rather than
     a line. Connecting those points with a line implies a precision-
@@ -26,14 +26,14 @@ def save_pr_curve(sweep_results, output_path, title=None):
         return df[(df['recall'] > 0.0) & (df['recall'] < 1.0)]
 
     fig, ax = plt.subplots(figsize=(6, 5))
-    for label, sweep_df in sweep_results:
-        df = sweep_df.sort_values('recall').reset_index(drop=True)
+    for label, curve_df in curves:
+        df = curve_df.sort_values('recall').reset_index(drop=True)
         # drop the trivial (recall=0, precision=0) sentinel that the
-        # sweep emits at the highest threshold. keeping it draws a
-        # phantom line from the origin to the leftmost real operating
-        # point, which is misleading when the model's smallest non-zero
-        # recall is well above zero (e.g., bimodal score distributions
-        # on small datasets).
+        # per-seed curve emits at the highest threshold. keeping it
+        # draws a phantom line from the origin to the leftmost real
+        # operating point, which is misleading when the model's
+        # smallest non-zero recall is well above zero (e.g., bimodal
+        # score distributions on small datasets).
         df = df[~((df['recall'] == 0.0) & (df['precision'] == 0.0))].reset_index(drop=True)
         ops = _operating_points(df)
         if len(ops) <= 1:

@@ -28,7 +28,7 @@ real-world entity. `matchify` ships five models behind a common
   needs `[deep]`.
 
 Every model implements `mrr()`, `confusion_matrix(threshold)`, and
-`threshold_sweep()` from the base class.
+`pr_curve()` from the base class.
 
 Also included: `DataSplitter`, data loaders (CSV, JSON, Parquet, S3,
 SQL), a synthetic person-record generator, and a CLI.
